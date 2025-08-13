@@ -1,4 +1,4 @@
-#include "platform.h"
+#include "./platform.h"
 #include "SDL3/SDL.h"
 
 SDL_Window *window;
@@ -13,9 +13,9 @@ static SDL_AudioStream *stream = NULL;
 
 void platform_init() {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-    window = SDL_CreateWindow("GameBoy Emulator", WIDTH * SCALE, HEIGHT * SCALE, 0);
-    renderer = SDL_CreateRenderer(&window, NULL);
-    texture = SDL_CreateTexture(&renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+    window = SDL_CreateWindow("GameBoy Emulator", SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE, 0);
+    renderer = SDL_CreateRenderer(window, NULL);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     //Set scalemode to nearest, otherwise pixels will be blurred
     SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
@@ -32,18 +32,18 @@ void platform_init() {
 
 
 void platform_video_draw(const uint32_t *framebuffer) {
-    uint32_t pixels[WIDTH * HEIGHT];
-    for(int i=0; i < WIDTH * HEIGHT; i++) {
-        pixels[i] = &framebuffer[i];
+    uint32_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
+    for(int i=0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i++) {
+        pixels[i] = framebuffer[i];
     } 
-    SDL_UpdateTexture(texture, NULL, pixels, WIDTH * sizeof(uint32_t));
+    SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderTexture(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
 }
 
 void platform_audio_play(float* samples, size_t count) {
-    SDL_PutAudioStreamData(stream, samples, count);
+    SDL_PutAudioStreamData(stream, samples, (int)(count * sizeof(float)));
 }
 
 

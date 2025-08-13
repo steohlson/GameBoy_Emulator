@@ -2,8 +2,9 @@
 #define PLATFORM_H
 
 #include <stdint.h>
-#include "gb.h"
 
+#define SCREEN_WIDTH 160
+#define SCREEN_HEIGHT 144
 
 void platform_init();
 void platform_video_draw(const uint32_t *framebuffer);
