@@ -24,7 +24,7 @@ void platform_init() {
     SDL_AudioSpec spec;
     spec.channels = 1;
     spec.format = SDL_AUDIO_F32;
-    spec.freq = 8000;
+    spec.freq = 8192;
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
     SDL_ResumeAudioStreamDevice(stream);
 
