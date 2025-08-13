@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\cmake_pch.cxx">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\cmake_pch.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -215,9 +212,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\render\gpu\SDL_shaders_gpu.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\render\ngage\SDL_render_ngage.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\render\opengl\SDL_render_gl.c">
@@ -433,6 +427,9 @@
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\video\dummy\SDL_nullvideo.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\core\windows\SDL_gameinput.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\core\windows\SDL_hid.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -446,12 +443,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\core\windows\pch.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\core\windows\SDL_gameinput.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\core\windows\pch_cpp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\main\windows\SDL_sysmain_runapp.c">
@@ -479,6 +470,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\video\windows\SDL_windowsframebuffer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\video\windows\SDL_windowsgameinput.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\video\windows\SDL_windowskeyboard.c">
@@ -512,9 +506,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\video\windows\SDL_windowswindow.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\video\windows\SDL_windowsgameinput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\thread\generic\SDL_syscond.c">
@@ -574,22 +565,10 @@
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\tray\windows\SDL_tray.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_8bitdo.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_combined.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_flydigi.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_gamecube.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_gip.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_lg4ff.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_luna.c">
@@ -608,9 +587,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_shield.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_sinput.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapi_stadia.c">
@@ -641,12 +617,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\hidapi\SDL_hidapijoystick.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\haptic\hidapi\SDL_hidapihaptic.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\haptic\hidapi\SDL_hidapihaptic_lg4ff.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="G:\MiscProjects\GameBoy_Emulator\vendor\SDL\src\joystick\windows\SDL_dinputjoystick.c">
@@ -723,25 +693,13 @@
     <ClInclude Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\Debug\cmake_pch.h">
       <Filter>Precompile Header File</Filter>
     </ClInclude>
-    <ClInclude Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\Debug\cmake_pch.hxx">
-      <Filter>Precompile Header File</Filter>
-    </ClInclude>
     <ClInclude Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\Release\cmake_pch.h">
-      <Filter>Precompile Header File</Filter>
-    </ClInclude>
-    <ClInclude Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\Release\cmake_pch.hxx">
       <Filter>Precompile Header File</Filter>
     </ClInclude>
     <ClInclude Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\MinSizeRel\cmake_pch.h">
       <Filter>Precompile Header File</Filter>
     </ClInclude>
-    <ClInclude Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\MinSizeRel\cmake_pch.hxx">
-      <Filter>Precompile Header File</Filter>
-    </ClInclude>
     <ClInclude Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\RelWithDebInfo\cmake_pch.h">
-      <Filter>Precompile Header File</Filter>
-    </ClInclude>
-    <ClInclude Include="G:\MiscProjects\GameBoy_Emulator\out\build\vsc_amd64\vendor\SDL\CMakeFiles\SDL3-shared.dir\RelWithDebInfo\cmake_pch.hxx">
       <Filter>Precompile Header File</Filter>
     </ClInclude>
   </ItemGroup>

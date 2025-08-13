@@ -1,5 +1,5 @@
 #include "timer.h"
-#include <stdio.h>
+
 
 /*
 System clock function
