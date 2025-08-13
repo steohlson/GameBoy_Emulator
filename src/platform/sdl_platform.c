@@ -49,12 +49,12 @@ void platform_audio_play(float* samples, size_t count) {
 
 uint8_t platform_get_input();
 
-uint64_t platform_time_ms() {
-    return SDL_GetTicks();
+uint64_t platform_time_ns() {
+    return SDL_GetTicksNS();
 }
 
-void platform_sleep_ms(uint32_t ms) {
-    SDL_Delay(ms);
+void platform_sleep_ms(uint64_t ns) {
+    SDL_DelayNS(ns);
 }
 
 void platform_log(const char* buf) {
