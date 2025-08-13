@@ -2,7 +2,9 @@
 #define TIMER_H
 
 #include <stdio.h>
+#include <stdint.h>
 #include "gb.h"
+
 
 
 void timer_init();

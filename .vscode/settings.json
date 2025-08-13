@@ -4,5 +4,6 @@
         "stdio.h": "c",
         "platform.h": "c",
         "sdl.h": "c"
-    }
+    },
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
 }

@@ -1,5 +1,5 @@
 #include "timer.h"
-
+#include "platform.h"
 
 /*
 System clock function
@@ -26,6 +26,6 @@ void timer_init() {
 Update timer
 */
 void timer_update() {
-
+    uint64_t start_time = platform_time_ms();
 
 }

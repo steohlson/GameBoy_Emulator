@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "platform/platform.h"
+#include "platform.h"
 #include "emulator/timer.h"
 
 int main(){
