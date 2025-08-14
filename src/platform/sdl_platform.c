@@ -53,7 +53,7 @@ uint64_t platform_time_ns() {
     return SDL_GetTicksNS();
 }
 
-void platform_sleep_ms(uint64_t ns) {
+void platform_sleep_ns(uint64_t ns) {
     SDL_DelayNS(ns);
 }
 
