@@ -92,10 +92,12 @@ uint8_t fetchOp() {
 
 //Instructions are split into blocks for readability
 uint8_t block_0(uint8_t op);
+/*
 uint8_t block_1(uint8_t op);
 uint8_t block_2(uint8_t op);
 uint8_t block_3(uint8_t op);
-
+uint8_t block_CB(uint8_t op);
+*/
 
 
 //Returns machine cycles instruction takes
@@ -111,15 +113,15 @@ uint8_t cpu_update() {
         break;
 
         case 0b01000000:
-            m_cycles = block_1(op);
+            //m_cycles = block_1(op);
         break;
 
         case 0b10000000:
-            m_cycles = block_2(op);
+            //m_cycles = block_2(op);
         break;
 
         case 0b11000000:
-            m_cycles = block_3(op);
+            //m_cycles = block_3(op);
         break;
 
         default:
@@ -187,7 +189,7 @@ uint8_t block_0(uint8_t op) {
                 break;
 
                 default:
-                    if(op & 0b11100111 == 0b00100000) { // 001(Conditional cond)000 - jr cond, imm8
+                    if((op & 0b11100111) == 0b00100000) { // 001(Conditional cond)000 - jr cond, imm8
                         break;
                     }
                     switch(op & 0b11001111) {
@@ -225,7 +227,9 @@ uint8_t block_0(uint8_t op) {
 }
 
 
-
+/*
 uint8_t block_1(uint8_t op);
 uint8_t block_2(uint8_t op);
 uint8_t block_3(uint8_t op);
+uint8_t block_CB(uint8_t op);
+*/
