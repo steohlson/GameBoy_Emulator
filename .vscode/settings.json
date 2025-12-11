@@ -3,7 +3,8 @@
         "timer.h": "c",
         "stdio.h": "c",
         "platform.h": "c",
-        "sdl.h": "c"
+        "sdl.h": "c",
+        "stdint.h": "c"
     },
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
 }

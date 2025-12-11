@@ -14,8 +14,9 @@
 #define HIGH_RAM 0xFF80
 #define INT_REG 0xFFFF
 
+
 void memory_init();
 uint8_t memory_get(uint16_t address);
-void memory_set(uint16_t address, uint8_t *value, size_t size);
+void memory_set(uint16_t address, uint8_t value);
 
 #endif // !MEMORY_H

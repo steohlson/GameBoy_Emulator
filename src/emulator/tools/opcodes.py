@@ -29,7 +29,7 @@ ocList.append(Opcode("00000111", "rlca"))
 ocList.append(Opcode("00001111", "rrca"))
 ocList.append(Opcode("00010111", "rla"))
 ocList.append(Opcode("00011111", "rra"))
-ocList.append(Opcode("00101111", "daa"))
+ocList.append(Opcode("00100111", "daa"))
 ocList.append(Opcode("00101111", "cpl"))
 ocList.append(Opcode("00110111", "scf"))
 ocList.append(Opcode("00000111", "ccf"))
@@ -151,7 +151,7 @@ dupRemoved = list(set(sortedList))
 dupRemoved.sort()
 
 for i in range(len(dupRemoved)):
-    print("\nvoid " + dupRemoved[i] + "() {\n\n}\n")
+    print("/*\n\n*/\nvoid " + dupRemoved[i] + "() {\n    m_cycles = 1;\n}\n")
 
 print(len(dupRemoved))
  
