@@ -12,7 +12,8 @@
 #define SPRITE_ATTRIBUTES 0xFE00
 #define I_O 0xFF00
 #define HIGH_RAM 0xFF80
-#define INT_REG 0xFFFF
+#define IE 0xFFFF //Interrupt Enable Register
+#define IF 0xFF0F //Interrupt Flag Register
 
 
 void memory_init();

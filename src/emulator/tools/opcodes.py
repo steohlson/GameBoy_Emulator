@@ -94,21 +94,7 @@ ocList.append(Opcode("11111001", "ld_sp_hl"))
 ocList.append(Opcode("11110011", "di"))
 ocList.append(Opcode("11111011", "ei"))
 
-#CB Prefix instructions
-'''
-ocList.append(Opcode("00000XX", "rlc_r8"))
-ocList.append(Opcode("00001XX", "rrc_r8"))
-ocList.append(Opcode("00010XX", "rl_r8"))
-ocList.append(Opcode("00011XX", "rr_r8"))
-ocList.append(Opcode("00100XX", "sla_r8"))
-ocList.append(Opcode("00101XX", "sra_r8"))
-ocList.append(Opcode("00110XX", "swap_r8"))
-ocList.append(Opcode("00111XX", "srl_r8"))
 
-ocList.append(Opcode("01XXXXXX", "bit_b3_r8"))
-ocList.append(Opcode("10XXXXXX", "res_b3_r8"))
-ocList.append(Opcode("11XXXXXX", "set_b3_r8"))
-'''
 
 default_value = "Default" #0xD3 is one of the values that will just hard lock cpu
 
@@ -156,3 +142,64 @@ for i in range(len(dupRemoved)):
 print(len(dupRemoved))
  
 
+
+
+#CB Prefix instructions
+cbList = []
+
+cbList.append(Opcode("00000XXX", "rlc_r8"))
+cbList.append(Opcode("00001XXX", "rrc_r8"))
+cbList.append(Opcode("00010XXX", "rl_r8"))
+cbList.append(Opcode("00011XXX", "rr_r8"))
+cbList.append(Opcode("00100XXX", "sla_r8"))
+cbList.append(Opcode("00101XXX", "sra_r8"))
+cbList.append(Opcode("00110XXX", "swap_r8"))
+cbList.append(Opcode("00111XXX", "srl_r8"))
+
+cbList.append(Opcode("01XXXXXX", "bit_b3_r8"))
+cbList.append(Opcode("10XXXXXX", "res_b3_r8"))
+cbList.append(Opcode("11XXXXXX", "set_b3_r8"))
+
+cbSortedList = [default_value] * 256
+
+print("\n\nCB Prefix instructions \n")
+
+
+for oc in cbList:
+    num_X = oc.code.count('X')
+    if(num_X != 0):
+        combinations = 2**num_X
+        for i in range(combinations):
+            binary = '{:0>9b}'.format(i)
+            code = oc.code
+            for j in range(num_X):
+                code = code.replace('X', binary[len(binary) - 1 - j], 1)
+            cbSortedList[int(code, 2)] = oc.function
+    else:
+        cbSortedList[int(oc.code, 2)] = oc.function
+
+print(cbSortedList[0])
+
+arrayString = "{"
+
+for i in range(len(cbSortedList)):
+    
+    arrayString += "&" + cbSortedList[i]
+    if(i < len(cbSortedList) - 1):
+        arrayString += ', '
+
+arrayString += "}"
+
+print(arrayString)
+
+print("\n")
+
+#remove duplicate strings
+dupRemoved = list(set(cbSortedList))
+
+dupRemoved.sort()
+
+for i in range(len(dupRemoved)):
+    print("/*\n\n*/\nvoid " + dupRemoved[i] + "() {\n    m_cycles = 1;\n}\n")
+
+print(len(dupRemoved))

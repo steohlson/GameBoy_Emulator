@@ -7,8 +7,6 @@
 
 
 
-void timer_init();
-void timer_update();
 
 #endif // !TIMER_H
 

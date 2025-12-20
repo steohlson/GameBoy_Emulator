@@ -8,10 +8,13 @@
 #include <stdbool.h>
 
 void cpu_init();
-uint8_t cpu_update();
+
+//Update the CPU state for one cycle
+void cpu_update();
 
 
 
-void *instructions[];
+void (*instructions[256])();
+void (*cb_instructions[256])();
 
 #endif // !CPU_H

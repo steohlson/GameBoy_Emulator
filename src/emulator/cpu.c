@@ -65,6 +65,8 @@ struct Registers {
 
 } reg;
 
+bool ei_flag = false; //flag to set interrupts after next instruction
+bool halt_flag = false; //flag to set CPU to halted state
 
 void cpu_init() {
     reg.PC = 0x100;
@@ -75,10 +77,9 @@ void cpu_init() {
     reg.HL = 0;
     reg.IR = 0;
     reg.IME = 0;
-
-
-
 }
+
+uint8_t m_cycles = 0;
 
 uint8_t opcode = 0;
 
@@ -89,15 +90,72 @@ uint8_t fetchOp() {
     
 }
 
+void handle_interrupt() {
+    uint8_t interrupts = memory_get(IE) & memory_get(IF); // IE & IF
+    if(!interrupts) return;
 
-uint8_t m_cycles = 0;
+    m_cycles = 5;
+    reg.IME = false;
+    halt_flag = false;
+
+    //loop through interrupts in priority order
+    for(int i = 0; i< 5; i++) {
+        if(interrupts & (1<<i)) {
+            memory_set(IF, memory_get(IE) & ~(1<<i)); //clear interrupt flag
+
+            //push PC to stack
+            reg.SP--;
+            memory_set(reg.SP, (reg.PC >> 8) & 0xFF);
+            reg.SP--;
+            memory_set(reg.SP, reg.PC & 0xFF);
+
+            reg.PC = 0x40 + (i * 8); //set PC to interrupt vector address
+            break;
+        }
+
+    }
+}
+
+
+
 //Returns machine cycles instruction takes
-uint8_t cpu_update() {
-    m_cycles = 0;
-    uint8_t op = fetchOp();
-    
+void cpu_update() {
+    if(m_cycles > 0) {
+        m_cycles--;
+        return;
+    }
+    //check if interrupts need enabled
+    bool enable_interrupts = ei_flag;
+    ei_flag = false;
 
-    return m_cycles;
+    bool skip = false;
+
+    //Check interrupts, even if CPU is halted
+    if(reg.IME && (memory_get(IE) & memory_get(IF))) {
+        handle_interrupt();
+        return;
+    }
+
+    if(halt_flag) {
+        if(memory_get(IE) & memory_get(IF)) {
+            halt_flag = false;
+        } else {
+            return;
+        }
+    }
+
+
+    if(!skip) {
+        uint8_t op = fetchOp();
+        //run operation
+        instructions[op]();
+    }
+
+
+    //ei instruction only enables interrupts after the next opcode finishes, so thats what this does
+    if(enable_interrupts) reg.IME = true;
+
+    return;
 }
 
 
@@ -107,13 +165,17 @@ uint8_t cpu_update() {
 uint8_t *r8_p[] = {&reg.B, &reg.C, &reg.D, &reg.E, &reg.H, &reg.L, 0, &reg.A};
 #define R8_S (*r8_p[R8])
 
-#define R16 ((0b0011000000 & opcode) >> 6)
+#define R16 ((0b00110000 & opcode) >> 6)
 uint16_t *r16_p[] = {&reg.BC, &reg.DE, &reg.HL, &reg.SP};
 #define R16_S (*r16_p[R16])
 
-#define R16stk ((0b0011000000 & opcode) >> 6)
+#define R16stk ((0b00110000 & opcode) >> 6)
 uint16_t *r16stk_p[] = {&reg.BC, &reg.DE, &reg.HL, &reg.AF};
 #define R16stk_S (*r16_p[R16stk])
+
+#define R16mem ((0b00110000 & opcode) >> 6)
+uint16_t *r16mem_p[] = {&reg.BC, &reg.DE, &reg.HL, &reg.HL};
+#define R16mem_S (*r16_p[R16stk])
 
 #define COND ((0b00011000 & opcode) >> 3)
 
@@ -166,7 +228,7 @@ Add the value in r8 plus the carry flag to A.
 */
 void adc_a_r8() {
     
-    uint8_t r8_value = 0;
+    uint8_t r8_value;
     if(R8 == 6) {
         m_cycles = 2;
         r8_value = memory_get(reg.HL);
@@ -210,7 +272,7 @@ ADD A,r8
 Add the value in r8 to A
 */
 void add_a_r8() {
-    uint8_t r8_value = 0;
+    uint8_t r8_value;
     if(R8 == 6) { //[HL]
         m_cycles = 2;
         r8_value = memory_get(reg.HL);
@@ -256,13 +318,13 @@ void add_sp_imm8() {
 
     uint16_t out = (uint16_t)((int32_t)reg.SP + e8);
 
-    reg.H_flag = ((reg.SP & 0x0F) + (e8 & 0x0F)) > 0x0F;
-
-    reg.SP = out;
-
-    reg.C_flag = ((reg.SP & 0xFF) + (e8 & 0xFF)) > 0xFF;
+    //TODO Confirm the following:
+    reg.H_flag = ((reg.SP & 0x0F) + ((uint8_t)e8 & 0x0F)) > 0x0F;
+    reg.C_flag = ((reg.SP & 0xFF) + ((uint8_t)e8 & 0xFF)) > 0xFF;
     reg.Z_flag = 0;
     reg.N_flag = 0;
+
+    reg.SP = out;
 }
 
 /*
@@ -287,7 +349,7 @@ AND A,r8
 Set A to the bitwise AND between the value in r8 and A
 */
 void and_a_r8() {
-    uint8_t r8_value = 0;
+    uint8_t r8_value;
     if(R8 == 6) { //[HL]
         m_cycles = 2;
         r8_value = memory_get(reg.HL);
@@ -386,7 +448,7 @@ This subtracts the value in r8 from A and sets flags accordingly,
 but discards the result
 */
 void cp_a_r8() {
-    uint8_t r8_value = 0;
+    uint8_t r8_value;
     if(R8 == 6) { //[HL]
         m_cycles = 2;
         r8_value = memory_get(reg.HL);
@@ -434,7 +496,7 @@ void daa()  {
         }
         reg.A += adjustment;
     }
-    if(reg.A == 0) reg.Z_flag = 0;
+    reg.Z_flag = (reg.A == 0);
     reg.H_flag = 0;
 }
 
@@ -453,15 +515,16 @@ Decrement the value in register r8 by 1
 */
 void dec_r8() {
     m_cycles = 1;
-    uint8_t r8_value = 0;
-    if(R8 == 6) { //[HL]
+    uint8_t r8 = (0b00111000 & opcode) >> 3; // r8 is in a non-standard location
+    uint8_t r8_value;
+    if(r8 == 6) { //[HL]
         m_cycles = 3;
         r8_value = memory_get(reg.HL);
         memory_set(reg.HL, r8_value - 1);
     } else {
         m_cycles = 1;
-        r8_value = R8_S;
-        R8_S = r8_value - 1;      
+        r8_value = *r8_p[r8];
+        *r8_p[r8] = r8_value - 1;      
     }
     reg.Z_flag = (r8_value-1 == 0);
     reg.N_flag = 1;
@@ -484,7 +547,7 @@ Enable Interrupts by seting the IME flag
 */
 void ei() {
     m_cycles = 1;
-    reg.IME = 1;
+    ei_flag = true;
 }
 
 /*
@@ -492,8 +555,8 @@ HALT
 Enter CPU low-power consumption mode until an interrupt occurs
 */
 void halt() {
-    m_cycles = 0;
-    //TODO
+    m_cycles = 1;
+    halt_flag = true;
 }
 
 /*
@@ -511,19 +574,20 @@ Increment the value in register r8 by 1
 */
 void inc_r8() {
     m_cycles = 1;
-    uint8_t r8_value = 0;
-    if(R8 == 6) { //[HL]
+    uint8_t r8 = (0b00111000 & opcode) >> 3; // r8 is in a non-standard location
+    uint8_t r8_value;
+    if(r8 == 6) { //[HL]
         m_cycles = 3;
         r8_value = memory_get(reg.HL);
         memory_set(reg.HL, r8_value + 1);
     } else {
         m_cycles = 1;
-        r8_value = R8_S;
-        R8_S = r8_value + 1;   
+        r8_value = *r8_p[r8];
+        *r8_p[r8] = r8_value + 1;   
     }
     reg.Z_flag = (r8_value+1 == 0);
     reg.N_flag = 0;
-    reg.H_flag = ((r8_value & 0x0F) + 1 > 0x0F);
+    reg.H_flag = ((r8_value & 0x0F) + 1 > 0x0F); //TODO: This could be wrong allegedly
 }
 
 /*
@@ -611,14 +675,30 @@ Copy the byte pointed to by r16 into register
 */
 void ld_a_r16mem() {
     m_cycles = 2;
-    reg.A = memory_get(R16_S);
+    reg.A = memory_get(R16mem_S);
+    if(R16mem == 2) { //HL+
+        R16mem_S++; 
+    } else if (R16mem == 3) { //HL-
+        R16mem_S--; 
+    }
 }
 
 /*
-
+LD HL,SP+e8
+Add the signed value e8 to SP and copy the result to HL
 */
 void ld_hl_sp_imm8() {
-    m_cycles = 1;
+    m_cycles = 4;
+
+    int8_t e8 = memory_get(reg.PC++);
+
+    reg.HL = (uint16_t)((int32_t)reg.SP + e8);
+    //TODO confirm the following:
+    reg.H_flag = ((reg.SP & 0x0F) + ((uint8_t)e8 & 0x0F)) > 0x0F;
+    reg.C_flag = ((reg.SP & 0xFF) + ((uint8_t)e8 & 0xFF)) > 0xFF;
+    reg.Z_flag = 0;
+    reg.N_flag = 0;
+
 }
 
 /*
@@ -634,10 +714,16 @@ void ld_imm16_a() {
 }
 
 /*
-
+LD [imm16],SP
+Copy SP & $FF at address imm16 and SP >> 8 at address n16+1
 */
 void ld_imm16_sp() {
-    m_cycles = 1;
+    m_cycles = 5;
+    uint8_t lo = memory_get(reg.PC++);
+    uint8_t hi = memory_get(reg.PC++);
+    uint16_t imm16 = (hi << 8) | (lo);
+    memory_set(imm16, reg.SP & 0xFF);
+    memory_set(imm16 + 1, reg.SP >> 8);
 }
 
 /*
@@ -658,7 +744,12 @@ Copy the value in register A into the byte pointed to by r16.
 */
 void ld_r16mem_a() {
     m_cycles = 2;
-    memory_set(R16_S, reg.A);
+    memory_set(R16mem_S, reg.A);
+    if(R16mem == 2) { //HL+
+        R16mem_S++; 
+    } else if (R16mem == 3) { //HL-
+        R16mem_S--; 
+    }
 }
 
 /*
@@ -667,13 +758,14 @@ Copy the value imm8 into register r8
 */
 void ld_r8_imm8() {
     uint8_t imm8 = memory_get(reg.PC++);
-    if(R8 == 6) {
+    uint8_t r8 = (0b00111000 & opcode) >> 3; // r8 is in a non-standard location
+    if(r8 == 6) {
         m_cycles = 2;
         memory_set(reg.HL, imm8);
         return;
     }
     m_cycles = 3;
-    R8_S = imm8;
+    *r8_p[r8] = imm8;
 }
 
 /*
@@ -696,7 +788,7 @@ void ld_r8_r8() {
         *r8_p[dest] = memory_get(reg.HL);
     } else {
         m_cycles = 1;
-        r8_p[dest] = r8_p[src]; 
+        *r8_p[dest] = *r8_p[src]; 
     }
 }
 
@@ -719,14 +811,19 @@ void ldh_a_c() {
 }
 
 /*
-
+LDH A,[imm16]
+Copy the byte at address n16 into register A, provided the address is between $FF00 and $FFFF.
 */
 void ldh_a_imm8() {
-    m_cycles = 1;
+    m_cycles = 3;
+    uint8_t lo = memory_get(reg.PC++);
+    uint16_t imm16 = 0xFF00 | (lo);
+    reg.A = memory_get(imm16);
 }
 
 /*
-
+LDH [C],A
+Copy the value in register A into the byte at address $FF00+C.
 */
 void ldh_c_a() {
     m_cycles = 2;
@@ -734,158 +831,618 @@ void ldh_c_a() {
 }
 
 /*
-
+LDH [n16],A
+Copy the value in register A into the byte at address n16, provided
+the address is between $FF00 and $FFFF.
 */
 void ldh_imm8_a() {
-    m_cycles = 1;
+    m_cycles = 3;
+    uint8_t lo = memory_get(reg.PC++);
+    uint16_t imm16 = 0xFF00 | (lo);
+    memory_set(imm16, reg.A);
 }
 
 /*
-
+NOP
+No Operation, 1 cycle
 */
 void nop() {
     m_cycles = 1;
 }
 
 /*
-
+OR A,imm8
+Set A to the bitwise OR between the value imm8 and A.
 */
 void or_a_imm8() {
-    m_cycles = 1;
+    m_cycles = 2;
+    uint8_t imm8 = memory_get(reg.PC++);
+    reg.A = reg.A | imm8;
+
+    reg.Z_flag = (reg.A == 0);
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+    reg.C_flag = 0;
 }
 
 /*
-
+OR A,r8
+Set A to the bitwise OR between the value in r8 and A.
 */
 void or_a_r8() {
+    
+    if(R8 == 6) { //[HL]
+        m_cycles = 2;
+        reg.A = reg.A | memory_get(reg.HL);
+        return;
+    }
     m_cycles = 1;
+    reg.A = reg.A | R8_S;
+
+    reg.Z_flag = (reg.A == 0);
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+    reg.C_flag = 0;
 }
 
 /*
+POP AF
+Pop register AF from the stack. This is roughly equivalent to the following imaginary instructions:
+
+    LD F, [SP]
+    INC SP
+    LD A, [SP]
+    INC SP
+
+OR
+
+POP r16
+Pop register r16 from the stack. This is roughly equivalent to the following imaginary instructions:
+
+    LD LOW(r16), [SP]   ; C, E or L
+    INC SP
+    LD HIGH(r16), [SP]  ; B, D or H
+    INC SP
+
 
 */
 void pop_r16stk() {
-    m_cycles = 1;
+    m_cycles = 3;
+    if(R16stk == 3) {
+        reg.F = memory_get(reg.SP++) & 0xF0;
+        reg.A = memory_get(reg.SP++);
+        reg.Z_flag = (reg.F & 0b10000000) >> 7;
+        reg.N_flag = (reg.F & 0b01000000) >> 6;
+        reg.H_flag = (reg.F & 0b00100000) >> 5;
+        reg.C_flag = (reg.F & 0b00010000) >> 4;
+    } else {
+        uint8_t lo = memory_get(reg.SP++);
+        uint8_t hi = memory_get(reg.SP++);
+        R16stk_S = (hi << 8) | (lo);
+    }
 }
 
 /*
-
+$CB prefix
+Use next byte to call another instruction
 */
 void prefix() {
-    m_cycles = 1;
+    cb_instructions[opcode]();
 }
 
 /*
-
+PUSH r16
+Push register r16 into the stack.  This is roughly equivalent to the following imaginary instructions
+    DEC SP
+    LD [SP], HIGH(r16)
+    DEC SP
+    LD [SP], LOW(r16)
 */
 void push_r16stk() {
-    m_cycles = 1;
+    m_cycles = 4;
+    if(R16stk == 3) { //AF
+        reg.SP--;
+        memory_set(reg.SP, reg.A);
+        reg.SP--;
+        uint8_t f = (reg.Z_flag << 7) | (reg.N_flag << 6) | (reg.H_flag << 5) | (reg.C_flag << 4);
+        memory_set(reg.SP, f);
+        return;   
+    }
+    reg.SP--;
+    memory_set(reg.SP, (R16stk_S >> 8) & 0xFF);
+    reg.SP--;
+    memory_set(reg.SP, R16stk_S & 0xFF);
 }
 
 /*
-
+RET
+Return from subroutine.  This is basically a POP PC. See POPr16
 */
 void ret() {
-    m_cycles = 1;
+    m_cycles = 4;
+    uint8_t lo = memory_get(reg.SP++);
+    uint8_t hi = memory_get(reg.SP++);
+    reg.PC = (hi << 8) | (lo);
 }
 
 /*
-
+RET cc
+Return from subroutine if condition cc is met
 */
 void ret_cond() {
-    m_cycles = 1;
+    if(!check_conditional(COND)) {
+        m_cycles = 2;
+        return;
+    }
+    m_cycles = 5;
+    uint8_t lo = memory_get(reg.SP++);
+    uint8_t hi = memory_get(reg.SP++);
+    reg.PC = (hi << 8) | (lo);
 }
 
 /*
-
+RETI
+Return from subroutine and enable interrupts
 */
 void reti() {
-    m_cycles = 1;
+    m_cycles = 4;
+    uint8_t lo = memory_get(reg.SP++);
+    uint8_t hi = memory_get(reg.SP++);
+    reg.PC = (hi << 8) | (lo);
+    reg.IME = 1;
 }
 
 /*
-
+RLA
+Rotate register A left, through the carry flag
 */
 void rla() {
     m_cycles = 1;
+    uint8_t shifted_a = (reg.A << 1) | reg.C_flag;
+    reg.C_flag = (reg.A >> 7) & 0b1; //masking not entirely necessary
+    reg.A = shifted_a;
+    
+    reg.Z_flag = 0;
+    reg.N_flag = 0;
+    reg.H_flag = 0;
 }
 
 /*
-
+RRA
+Rotate register A right, through the carry flag
 */
 void rra() {
     m_cycles = 1;
+    uint8_t shifted_a = (reg.A >> 1) | (reg.C_flag << 7);
+    reg.C_flag = reg.A & 0b1;
+    reg.A = shifted_a;
+    
+    reg.Z_flag = 0;
+    reg.N_flag = 0;
+    reg.H_flag = 0;
 }
 
 /*
-
+RRCA
+Rotate register A right
 */
 void rrca() {
     m_cycles = 1;
+    reg.C_flag = reg.A & 0b1;
+    reg.A = (reg.A >> 1) | (reg.A << 7);
+
+    reg.Z_flag = 0;
+    reg.N_flag = 0;
+    reg.H_flag = 0;
 }
 
 /*
-
+RST tgt3
+Call address tgt3.  This is a shorter and faster equivalent to CALL for suitable values of tgt3
 */
 void rst_tgt3() {
-    m_cycles = 1;
+    m_cycles = 4;
+    uint8_t tgt3 = (0b00111000 & opcode) >> 3;
+    uint16_t addr = tgt3<<3; // multiplication by 8
+
+
+    reg.SP--;
+    memory_set(reg.SP, (reg.PC >> 8) & 0xFF);
+    reg.SP--;
+    memory_set(reg.SP, reg.PC & 0xFF);
+
+    reg.PC = addr;
+
 }
 
 /*
-
+SBC A,imm8
 */
 void sbc_a_imm8() {
-    m_cycles = 1;
+    m_cycles = 2;
+    uint8_t imm8 = memory_get(reg.PC++);
+
+    uint16_t result = reg.A - imm8 - reg.C_flag;
+
+    reg.Z_flag = ((uint8_t)result == 0);
+    reg.N_flag = 1;
+    reg.H_flag = (((imm8 & 0x0F) + reg.C_flag) > (reg.A & 0x0F));
+    reg.C_flag = (reg.A < imm8 + reg.C_flag); 
 }
 
 /*
-
+SBC A,r8
+Subtract the value in r8 and the carry flag from A
 */
 void sbc_a_r8() {
     m_cycles = 1;
+    uint8_t r8_value;
+    if(R8 == 6) { //[HL]
+        m_cycles = 2;
+        r8_value = memory_get(reg.HL);
+    } else {
+        m_cycles = 1;
+        r8_value = R8_S;        
+    }
+    uint16_t result = reg.A - r8_value - reg.C_flag;
+
+    reg.Z_flag = ((uint8_t)result == 0);
+    reg.N_flag = 1;
+    reg.H_flag = (((r8_value & 0x0F) + reg.C_flag) > (reg.A & 0x0F));
+    reg.C_flag = (reg.A < r8_value + reg.C_flag); 
 }
 
 /*
-
+Set Carry Flag
 */
 void scf() {
     m_cycles = 1;
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+    reg.C_flag = 1;
 }
 
 /*
-
+STOP
+Enter CPU very low power mode. Also used to switch between GBC double speed and normal speed CPU modes.
+This is not used in any licensed rom.  On GDC it switches speed modes.
+TODO: implement the Stop function shenanigans, referencing https://gbdev.io/pandocs/Reducing_Power_Consumption.html
 */
 void stop() {
     m_cycles = 1;
+    reg.PC++; //ignore the next byte
 }
 
 /*
 
 */
 void sub_a_imm8() {
-    m_cycles = 1;
+    m_cycles = 2;
+    uint8_t imm8 = memory_get(reg.PC++);
+
+    uint16_t result = reg.A - imm8;
+
+    reg.Z_flag = ((uint8_t)result == 0);
+    reg.N_flag = 1;
+    reg.H_flag = ((imm8 & 0x0F) > (reg.A & 0x0F));
+    reg.C_flag = (reg.A < imm8); 
 }
 
 /*
-
+SUB A,r8
 */
 void sub_a_r8() {
     m_cycles = 1;
+    uint8_t r8_value;
+    if(R8 == 6) { //[HL]
+        m_cycles = 2;
+        r8_value = memory_get(reg.HL);
+    } else {
+        m_cycles = 1;
+        r8_value = R8_S;        
+    }
+    uint16_t result = reg.A - r8_value;
+
+    reg.Z_flag = ((uint8_t)result == 0);
+    reg.N_flag = 1;
+    reg.H_flag = ((r8_value & 0x0F) > (reg.A & 0x0F));
+    reg.C_flag = (reg.A < r8_value); 
 }
 
 /*
-
+XOR A,imm8
+Set A to the bitwise XOR between the value imm8 and A.
 */
 void xor_a_imm8() {
-    m_cycles = 1;
+    m_cycles = 2;
+    uint8_t imm8 = memory_get(reg.PC++);
+    reg.A = imm8 ^ reg.A;
+
+    reg.Z_flag = (reg.A == 0);
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+    reg.C_flag = 0;
 }
 
 /*
-
+XOR A,r8
+Set A to the bitwise XOR between the value in r8 and A.
 */
 void xor_a_r8() {
     m_cycles = 1;
+    uint8_t r8_value;
+    if(R8 == 6) { //[HL]
+        m_cycles = 2;
+        r8_value = memory_get(reg.HL);
+    } else {
+        m_cycles = 1;
+        r8_value = R8_S;        
+    }
+    reg.A = r8_value ^ reg.A;
+
+    reg.Z_flag = (reg.A == 0);
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+    reg.C_flag = 0; 
 }
 
 
-void *instructions[] = {&nop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &ccf, &ld_imm16_sp, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rrca, &stop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rla, &jr_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rra, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &daa, &jr_cond_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &cpl, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &scf, &jr_cond_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &Default, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &halt, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &ret_cond, &pop_r16stk, &jp_cond_imm16, &jp_imm16, &call_cond_imm16, &push_r16stk, &add_a_imm8, &rst_tgt3, &ret_cond, &ret, &jp_cond_imm16, &prefix, &call_cond_imm16, &call_imm16, &adc_a_imm8, &rst_tgt3, &ret_cond, &pop_r16stk, &jp_cond_imm16, &Default, &call_cond_imm16, &push_r16stk, &sub_a_imm8, &rst_tgt3, &ret_cond, &reti, &jp_cond_imm16, &Default, &call_cond_imm16, &Default, &sbc_a_imm8, &rst_tgt3, &ldh_imm8_a, &pop_r16stk, &ldh_c_a, &Default, &Default, &push_r16stk, &and_a_imm8, &rst_tgt3, &add_sp_imm8, &jp_hl, &ld_imm16_a, &Default, &Default, &Default, &xor_a_imm8, &rst_tgt3, &ldh_a_imm8, &pop_r16stk, &ldh_a_c, &di, &Default, &push_r16stk, &or_a_imm8, &rst_tgt3, &ld_hl_sp_imm8, &ld_sp_hl, &ld_a_imm16, &ei, &Default, &Default, &cp_a_imm8, &rst_tgt3};
+
+
+void (*instructions[256])() = {&nop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &ccf, &ld_imm16_sp, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rrca, &stop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rla, &jr_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rra, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &daa, &jr_cond_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &cpl, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &scf, &jr_cond_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &Default, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &halt, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &ret_cond, &pop_r16stk, &jp_cond_imm16, &jp_imm16, &call_cond_imm16, &push_r16stk, &add_a_imm8, &rst_tgt3, &ret_cond, &ret, &jp_cond_imm16, &prefix, &call_cond_imm16, &call_imm16, &adc_a_imm8, &rst_tgt3, &ret_cond, &pop_r16stk, &jp_cond_imm16, &Default, &call_cond_imm16, &push_r16stk, &sub_a_imm8, &rst_tgt3, &ret_cond, &reti, &jp_cond_imm16, &Default, &call_cond_imm16, &Default, &sbc_a_imm8, &rst_tgt3, &ldh_imm8_a, &pop_r16stk, &ldh_c_a, &Default, &Default, &push_r16stk, &and_a_imm8, &rst_tgt3, &add_sp_imm8, &jp_hl, &ld_imm16_a, &Default, &Default, &Default, &xor_a_imm8, &rst_tgt3, &ldh_a_imm8, &pop_r16stk, &ldh_a_c, &di, &Default, &push_r16stk, &or_a_imm8, &rst_tgt3, &ld_hl_sp_imm8, &ld_sp_hl, &ld_a_imm16, &ei, &Default, &Default, &cp_a_imm8, &rst_tgt3};
+
+
+
+
+////////////////////////////////////////////////////////////////
+/////////////////// $ CB Prefix Instructions ///////////////////
+////////////////////////////////////////////////////////////////
+
+
+
+
+/*
+BIT b3,r8
+Test bit b3 in register r8, set the zero flag if bit not set.
+*/
+void bit_b3_r8() {
+    uint8_t b3 = (0b00111000 & opcode) >> 3;
+    uint8_t r8_value;
+    if(R8 == 6) { //[HL]
+        m_cycles = 3;
+        r8_value = memory_get(reg.HL);
+    } else {
+        m_cycles = 2;
+        r8_value = R8_S;        
+    }
+    reg.Z_flag = ((r8_value >> b3) & 0b1) == 0;
+    reg.N_flag = 0;
+    reg.H_flag = 1;
+}
+
+/*
+RES b3,r8
+Set bit u3 in register r8 to 0. Bit 0 is the rightmost one, bit 7 is the leftmost one.
+*/
+void res_b3_r8() {
+    uint8_t b3 = (0b00111000 & opcode) >> 3;
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        memory_set(reg.HL, memory_get(reg.HL) & ~(1 << b3));
+    } else {
+        m_cycles = 2;
+        R8_S = R8_S & ~(1 << b3);        
+    }
+}
+
+/*
+RL r8
+Rotate bits in register r8 left, through the carry flag.
+*/
+void rl_r8() {
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        uint8_t imm8 = memory_get(reg.HL);
+        uint8_t shifted_r8 = (imm8 << 1) | reg.C_flag;
+        reg.C_flag = (imm8 >> 7) & 0b1; //masking not entirely necessary
+        memory_set(reg.HL, shifted_r8);
+        reg.Z_flag = (shifted_r8 == 0);
+    } else {
+        m_cycles = 2;
+        uint8_t shifted_r8 = (R8_S << 1) | reg.C_flag;
+        reg.C_flag = (R8_S >> 7) & 0b1; //masking not entirely necessary
+        R8_S = shifted_r8;
+        reg.Z_flag = (R8_S == 0);
+    }
+    
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+}
+
+/*
+RLC r8
+Rotate register r8 left.
+*/
+void rlc_r8() {
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        uint8_t imm8 = memory_get(reg.HL);
+        uint8_t shifted_r8 = (imm8 << 1) | (imm8 >> 7);
+        reg.C_flag = (imm8 >> 7) & 0b1; //masking not entirely necessary
+        memory_set(reg.HL, shifted_r8);
+        reg.Z_flag = (shifted_r8 == 0);
+    } else {
+        m_cycles = 2;
+        uint8_t shifted_r8 = (R8_S << 1) | (R8_S >> 7);
+        reg.C_flag = (R8_S >> 7) & 0b1; //masking not entirely necessary
+        R8_S = shifted_r8;
+        reg.Z_flag = (R8_S == 0);
+    }
+    
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+}
+
+/*
+RR r8
+Rotate register r8 right, through the carry flag.
+*/
+void rr_r8() {
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        uint8_t imm8 = memory_get(reg.HL);
+        uint8_t shifted_r8 = (imm8 >> 1) | (reg.C_flag << 7);
+        reg.C_flag = imm8 & 0b1; //masking not entirely necessary
+        memory_set(reg.HL, shifted_r8);
+        reg.Z_flag = (shifted_r8 == 0);
+    } else {
+        m_cycles = 2;
+        uint8_t shifted_r8 = (R8_S >> 1) | (reg.C_flag << 7);
+        reg.C_flag = R8_S & 0b1; //masking not entirely necessary
+        R8_S = shifted_r8;
+        reg.Z_flag = (R8_S == 0);
+    }
+    
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+}
+
+/*
+RRC r8
+Rotate register r8 right.
+*/
+void rrc_r8() {
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        uint8_t imm8 = memory_get(reg.HL);
+        uint8_t shifted_r8 = (imm8 >> 1) | (imm8 << 7);
+        reg.C_flag = imm8 & 0b1; //masking not entirely necessary
+        memory_set(reg.HL, shifted_r8);
+        reg.Z_flag = (shifted_r8 == 0);
+    } else {
+        m_cycles = 2;
+        uint8_t shifted_r8 = (R8_S >> 1) | (R8_S << 7);
+        reg.C_flag = R8_S & 0b1; //masking not entirely necessary
+        R8_S = shifted_r8;
+        reg.Z_flag = (R8_S == 0);
+    }
+    
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+}
+
+/*
+
+*/
+void set_b3_r8() {
+    uint8_t b3 = (0b00111000 & opcode) >> 3;
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        memory_set(reg.HL, memory_get(reg.HL) | (1 << b3));
+    } else {
+        m_cycles = 2;
+        R8_S = R8_S | (1 << b3);        
+    }
+}
+
+/*
+SLA r8
+Shift Left Arithmetically register r8
+*/
+void sla_r8() {
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        uint8_t imm8 = memory_get(reg.HL);
+        uint8_t shifted_r8 = (imm8 << 1);
+        reg.C_flag = (imm8 >> 7) & 0b1; //masking not entirely necessary
+        memory_set(reg.HL, shifted_r8);
+        reg.Z_flag = (shifted_r8 == 0);
+    } else {
+        m_cycles = 2;
+        uint8_t shifted_r8 = (R8_S << 1);
+        reg.C_flag = (R8_S >> 7) & 0b1; //masking not entirely necessary
+        R8_S = shifted_r8;
+        reg.Z_flag = (R8_S == 0);
+    }
+    
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+}
+
+/*
+SRA r8
+Shift Right Arithmetically register r8
+*/
+void sra_r8() {
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        uint8_t imm8 = memory_get(reg.HL);
+        uint8_t shifted_r8 = (imm8 >> 1) | (imm8 & 0b10000000);
+        reg.C_flag = imm8 & 0b1; //masking not entirely necessary
+        memory_set(reg.HL, shifted_r8);
+        reg.Z_flag = (shifted_r8 == 0);
+    } else {
+        m_cycles = 2;
+        uint8_t shifted_r8 = (R8_S >> 1) | (R8_S & 0b10000000);
+        reg.C_flag = R8_S & 0b1; //masking not entirely necessary
+        R8_S = shifted_r8;
+        reg.Z_flag = (R8_S == 0);
+    }
+    
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+}
+
+/*
+SRL r8
+Shift Right Logically register r8
+*/
+void srl_r8() {
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        uint8_t imm8 = memory_get(reg.HL);
+        uint8_t shifted_r8 = (imm8 >> 1);
+        reg.C_flag = imm8 & 0b1; //masking not entirely necessary
+        memory_set(reg.HL, shifted_r8);
+        reg.Z_flag = (shifted_r8 == 0);
+    } else {
+        m_cycles = 2;
+        uint8_t shifted_r8 = (R8_S >> 1);
+        reg.C_flag = R8_S & 0b1; //masking not entirely necessary
+        R8_S = shifted_r8;
+        reg.Z_flag = (R8_S == 0);
+    }
+    
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+}
+
+/*
+SWAP r8
+Swap the upper 4 bits in register r8 and the lower 4 ones.
+*/
+void swap_r8() {
+    uint8_t swap;
+    if(R8 == 6) { //[HL]
+        m_cycles = 4;
+        uint8_t imm8 = memory_get(reg.HL);
+        swap = (imm8 >> 4) | (imm8 << 4);
+        memory_set(reg.HL, swap);
+    } else {
+        m_cycles = 2;
+        swap = (R8_S >> 4) | (R8_S << 4);
+        R8_S = swap;
+
+    }
+    
+    reg.Z_flag = (swap == 0);
+    reg.N_flag = 0;
+    reg.H_flag = 0;
+    reg.C_flag = 0;
+}
+
+
+
+
+void (*cb_instructions[256])() = {&rlc_r8, &rlc_r8, &rlc_r8, &rlc_r8, &rlc_r8, &rlc_r8, &rlc_r8, &rlc_r8, &rrc_r8, &rrc_r8, &rrc_r8, &rrc_r8, &rrc_r8, &rrc_r8, &rrc_r8, &rrc_r8, &rl_r8, &rl_r8, &rl_r8, &rl_r8, &rl_r8, &rl_r8, &rl_r8, &rl_r8, &rr_r8, &rr_r8, &rr_r8, &rr_r8, &rr_r8, &rr_r8, &rr_r8, &rr_r8, &sla_r8, &sla_r8, &sla_r8, &sla_r8, &sla_r8, &sla_r8, &sla_r8, &sla_r8, &sra_r8, &sra_r8, &sra_r8, &sra_r8, &sra_r8, &sra_r8, &sra_r8, &sra_r8, &swap_r8, &swap_r8, &swap_r8, &swap_r8, &swap_r8, &swap_r8, &swap_r8, &swap_r8, &srl_r8, &srl_r8, &srl_r8, &srl_r8, &srl_r8, &srl_r8, &srl_r8, &srl_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &bit_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &res_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8, &set_b3_r8};
+
