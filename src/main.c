@@ -6,14 +6,16 @@
 #include "emulator/cpu.h"
 #include "emulator/ppu.h"
 #include "emulator/gb.h"
+#include "emulator/input.h"
 
 
 /*
 System clock function
 */
 void sys_clk() {
+    input_update();
     cpu_update();
-    ppu_update();
+    //ppu_update();
 }
 
 /*
@@ -27,7 +29,7 @@ int main(){
     platform_init();
     memory_init();
     cpu_init();
-    ppu_init();
+    //ppu_init();
 
     while(1) {
         uint64_t start_time = platform_time_ns();

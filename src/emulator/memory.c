@@ -15,5 +15,13 @@ uint8_t memory_get(uint16_t address) {
 }
 
 void memory_set(uint16_t address, uint8_t value) {
+    if(address == DIV) {
+        memory[address] = 0;
+        return;
+    }
     memory[address] = value;
+}
+
+void memory_inc(uint16_t address) {
+    memory[address] += 1;
 }

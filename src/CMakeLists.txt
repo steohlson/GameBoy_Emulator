@@ -1,4 +1,4 @@
-add_executable(${PROJECT_NAME} main.c emulator/apu.c emulator/cartridge.c emulator/cpu.c emulator/memory.c emulator/ppu.c emulator/timer.c)
+add_executable(${PROJECT_NAME} main.c emulator/apu.c emulator/cartridge.c emulator/cpu.c emulator/memory.c emulator/ppu.c emulator/timer.c emulator/input.c emulator/interrupt.c)
 #target_link_libraries(${PROJECT_NAME} PRIVATE vendor)
 
 

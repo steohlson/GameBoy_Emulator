@@ -47,7 +47,28 @@ void platform_audio_play(float* samples, size_t count) {
 }
 
 
-uint8_t platform_get_input();
+uint8_t platform_get_input() {
+    SDL_Event event;
+    while(SDL_PollEvent(&event)) {
+        if(event.type == SDL_EVENT_QUIT) {
+            exit(0);
+        }
+    }
+
+    const uint8_t *keys = SDL_GetKeyboardState(NULL);
+    uint8_t input = 0;
+
+    if(keys[SDL_SCANCODE_Q]) input |= IN_A;
+    if(keys[SDL_SCANCODE_E]) input |= IN_B;
+    if(keys[SDL_SCANCODE_LSHIFT]) input |= IN_SELECT;
+    if(keys[SDL_SCANCODE_TAB]) input |= IN_START;
+    if(keys[SDL_SCANCODE_D]) input |= IN_RIGHT;
+    if(keys[SDL_SCANCODE_A]) input |= IN_LEFT;
+    if(keys[SDL_SCANCODE_W]) input |= IN_UP;
+    if(keys[SDL_SCANCODE_S]) input |= IN_DOWN;
+
+    return input;
+}
 
 uint64_t platform_time_ns() {
     return SDL_GetTicksNS();
