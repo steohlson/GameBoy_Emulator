@@ -56,16 +56,16 @@ uint8_t platform_get_input() {
     }
 
     const uint8_t *keys = SDL_GetKeyboardState(NULL);
-    uint8_t input = 0;
+    uint8_t input = 0xFF;
 
-    if(keys[SDL_SCANCODE_Q]) input |= IN_A;
-    if(keys[SDL_SCANCODE_E]) input |= IN_B;
-    if(keys[SDL_SCANCODE_LSHIFT]) input |= IN_SELECT;
-    if(keys[SDL_SCANCODE_TAB]) input |= IN_START;
-    if(keys[SDL_SCANCODE_D]) input |= IN_RIGHT;
-    if(keys[SDL_SCANCODE_A]) input |= IN_LEFT;
-    if(keys[SDL_SCANCODE_W]) input |= IN_UP;
-    if(keys[SDL_SCANCODE_S]) input |= IN_DOWN;
+    if(keys[SDL_SCANCODE_Q]) input &= ~IN_A;
+    if(keys[SDL_SCANCODE_E]) input &= ~IN_B;
+    if(keys[SDL_SCANCODE_LSHIFT]) input &= ~IN_SELECT;
+    if(keys[SDL_SCANCODE_TAB]) input &= ~IN_START;
+    if(keys[SDL_SCANCODE_D]) input &= ~IN_RIGHT;
+    if(keys[SDL_SCANCODE_A]) input &= ~IN_LEFT;
+    if(keys[SDL_SCANCODE_W]) input &= ~IN_UP;
+    if(keys[SDL_SCANCODE_S]) input &= ~IN_DOWN;
 
     return input;
 }
