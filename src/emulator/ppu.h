@@ -1,6 +1,11 @@
 #ifndef PPU_H
 #define PPU_H
 
+#include "memory.h"
+#include "../platform/platform.h"
+#include "gb.h"
+#include "interrupt.h"
+
 //LCD Registers
 #define LCDC 0xFF40 //LCD Control
 #define STAT 0xFF41 //LCD Status
