@@ -13,7 +13,7 @@ ocList = []
 ocList.append(Opcode("00000000", "nop"))
 ocList.append(Opcode("00XX0001", "ld_r16_imm16"))
 ocList.append(Opcode("00XX0010", "ld_r16mem_a"))
-ocList.append(Opcode("00001010", "ld_a_r16mem"))
+ocList.append(Opcode("00XX1010", "ld_a_r16mem"))
 ocList.append(Opcode("00001000", "ld_imm16_sp"))
 
 ocList.append(Opcode("00XX0011", "inc_r16"))

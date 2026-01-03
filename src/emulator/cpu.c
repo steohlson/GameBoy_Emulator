@@ -13,16 +13,16 @@ struct Registers {
         struct {
 
             //Flags
-            union {
+            //union {
                 uint8_t F;
-                struct {
+                /*struct {
                     uint8_t f_unused : 4;
                     uint8_t C_flag : 1; //carry flag
                     uint8_t H_flag : 1; //half carry flag
                     uint8_t N_flag : 1; //Subtraction flag
                     uint8_t Z_flag : 1; //zero flag
-                };
-            };
+                };*/
+            //};
             
             uint8_t A;// Accumulator
         };
@@ -65,11 +65,22 @@ struct Registers {
 
 } reg;
 
+// Access flags via helper macros
+#define Z_FLAG (reg.F & 0x80)
+#define N_FLAG (reg.F & 0x40)
+#define H_FLAG (reg.F & 0x20)
+#define C_FLAG (reg.F & 0x10)
+
+#define SET_Z(x) reg.F = (reg.F & ~0x80) | ((x) ? 0x80 : 0)
+#define SET_N(x) reg.F = (reg.F & ~0x40) | ((x) ? 0x40 : 0)
+#define SET_H(x) reg.F = (reg.F & ~0x20) | ((x) ? 0x20 : 0)
+#define SET_C(x) reg.F = (reg.F & ~0x10) | ((x) ? 0x10 : 0)
+
 bool ei_flag = false; //flag to set interrupts after next instruction
 bool halt_flag = false; //flag to set CPU to halted state
 
 void cpu_init() {
-    reg.PC = 0x100;
+    reg.PC = 0x0000;
     reg.SP = 0xFFFE;
     reg.AF = 0;
     reg.BC = 0;
@@ -101,7 +112,7 @@ void handle_interrupt() {
     //loop through interrupts in priority order
     for(int i = 0; i< 5; i++) {
         if(interrupts & (1<<i)) {
-            memory_set(IF, memory_get(IE) & ~(1<<i)); //clear interrupt flag
+            memory_set(IF, memory_get(IF) & ~(1<<i)); //clear interrupt flag
 
             //push PC to stack
             reg.SP--;
@@ -120,6 +131,11 @@ void handle_interrupt() {
 
 //Returns machine cycles instruction takes
 void cpu_update() {
+    
+    if(reg.PC > 0xAA00) {
+        return;
+    }
+    
     if(m_cycles > 0) {
         m_cycles--;
         return;
@@ -148,7 +164,10 @@ void cpu_update() {
     if(!skip) {
         uint8_t op = fetchOp();
         //run operation
+        printf("PC=0x%04X opcode=0x%02X", reg.PC, opcode);
         instructions[op]();
+        printf(" AF=0x%04X BC=0x%04X DE=0x%04X HL=0x%04X SP=0x%04X\n", reg.AF, reg.BC, reg.DE, reg.HL, reg.SP);
+
     }
 
 
@@ -165,24 +184,24 @@ void cpu_update() {
 uint8_t *r8_p[] = {&reg.B, &reg.C, &reg.D, &reg.E, &reg.H, &reg.L, 0, &reg.A};
 #define R8_S (*r8_p[R8])
 
-#define R16 ((0b00110000 & opcode) >> 6)
+#define R16 ((0b00110000 & opcode) >> 4)
 uint16_t *r16_p[] = {&reg.BC, &reg.DE, &reg.HL, &reg.SP};
 #define R16_S (*r16_p[R16])
 
-#define R16stk ((0b00110000 & opcode) >> 6)
+#define R16stk ((0b00110000 & opcode) >> 4)
 uint16_t *r16stk_p[] = {&reg.BC, &reg.DE, &reg.HL, &reg.AF};
-#define R16stk_S (*r16_p[R16stk])
+#define R16stk_S (*r16stk_p[R16stk])
 
-#define R16mem ((0b00110000 & opcode) >> 6)
+#define R16mem ((0b00110000 & opcode) >> 4)
 uint16_t *r16mem_p[] = {&reg.BC, &reg.DE, &reg.HL, &reg.HL};
-#define R16mem_S (*r16_p[R16stk])
+#define R16mem_S (*r16mem_p[R16mem])
 
 #define COND ((0b00011000 & opcode) >> 3)
 
 bool check_conditional(uint8_t cond) {
     switch(cond) {
-        case 0: return !(reg.Z_flag); // NZ
-        case 1: return (reg.Z_flag);  // Z
+        case 0: return !(Z_FLAG); // NZ
+        case 1: return (Z_FLAG);  // Z
         case 2: return !(reg.C_flag); // NC   
         case 3: return (reg.C_flag);  // C
         default: return false;
@@ -215,9 +234,9 @@ void adc_a_imm8() {
 
     uint16_t out = reg.A + imm8 + reg.C_flag;
     reg.A = (uint8_t)out;
-    reg.Z_flag = (reg.A == 0);
+    SET_Z(reg.A == 0);
     
-    reg.C_flag = out >> 8;
+    SET_C(out >> 8);
     reg.N_flag = 0;
 
 }
@@ -640,11 +659,16 @@ Relative Jump to
 void jr_cond_imm8() {
     if(!check_conditional(COND)) {
         m_cycles = 2;
+        reg.PC++;
         return;
     }
     m_cycles = 3;
     int8_t imm8 = (int8_t)memory_get(reg.PC++);
-    reg.PC += imm8;
+    reg.PC++;
+    reg.PC = (uint16_t)(reg.PC + imm8);
+    //printf("PC=0x%04X opcode=0x%02X Z=%d N=%d H=%d C=%d\n",
+    //   reg.PC, opcode, reg.Z_flag, reg.N_flag, reg.H_flag, reg.C_flag);
+    //printf("JR Cond taken to 0x%04X\n", reg.PC); //test
 }
 
 /*
@@ -655,6 +679,9 @@ void jr_imm8() {
     m_cycles = 3;
     int8_t imm8 = (int8_t)memory_get(reg.PC++);
     reg.PC += imm8;
+    //printf("PC=0x%04X opcode=0x%02X Z=%d N=%d H=%d C=%d\n",
+    //   reg.PC, opcode, reg.Z_flag, reg.N_flag, reg.H_flag, reg.C_flag);
+    //printf("JR taken to 0x%04X\n", reg.PC); //test
 }
 
 /*
@@ -677,9 +704,9 @@ void ld_a_r16mem() {
     m_cycles = 2;
     reg.A = memory_get(R16mem_S);
     if(R16mem == 2) { //HL+
-        R16mem_S++; 
+        reg.HL++; 
     } else if (R16mem == 3) { //HL-
-        R16mem_S--; 
+        reg.HL--; 
     }
 }
 
@@ -735,6 +762,7 @@ void ld_r16_imm16() {
     uint8_t lo = memory_get(reg.PC++);
     uint8_t hi = memory_get(reg.PC++);
     uint16_t imm16 = (hi << 8) | (lo);
+    //TODO check if there is special behavior for SP
     R16_S = imm16;
 }
 
@@ -746,9 +774,9 @@ void ld_r16mem_a() {
     m_cycles = 2;
     memory_set(R16mem_S, reg.A);
     if(R16mem == 2) { //HL+
-        R16mem_S++; 
+        reg.HL++; 
     } else if (R16mem == 3) { //HL-
-        R16mem_S--; 
+        reg.HL--; 
     }
 }
 
@@ -927,7 +955,10 @@ $CB prefix
 Use next byte to call another instruction
 */
 void prefix() {
+    fetchOp();
     cb_instructions[opcode]();
+    //printf("CB PREFIX: PC=0x%04X opcode=0x%02X\n", reg.PC, opcode);
+    
 }
 
 /*
@@ -948,6 +979,7 @@ void push_r16stk() {
         memory_set(reg.SP, f);
         return;   
     }
+    //TODO check order of high vs low
     reg.SP--;
     memory_set(reg.SP, (R16stk_S >> 8) & 0xFF);
     reg.SP--;
@@ -1189,7 +1221,7 @@ void xor_a_r8() {
 
 
 
-void (*instructions[256])() = {&nop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &ccf, &ld_imm16_sp, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rrca, &stop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rla, &jr_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rra, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &daa, &jr_cond_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &cpl, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &scf, &jr_cond_imm8, &add_hl_r16, &Default, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &Default, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &halt, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &ret_cond, &pop_r16stk, &jp_cond_imm16, &jp_imm16, &call_cond_imm16, &push_r16stk, &add_a_imm8, &rst_tgt3, &ret_cond, &ret, &jp_cond_imm16, &prefix, &call_cond_imm16, &call_imm16, &adc_a_imm8, &rst_tgt3, &ret_cond, &pop_r16stk, &jp_cond_imm16, &Default, &call_cond_imm16, &push_r16stk, &sub_a_imm8, &rst_tgt3, &ret_cond, &reti, &jp_cond_imm16, &Default, &call_cond_imm16, &Default, &sbc_a_imm8, &rst_tgt3, &ldh_imm8_a, &pop_r16stk, &ldh_c_a, &Default, &Default, &push_r16stk, &and_a_imm8, &rst_tgt3, &add_sp_imm8, &jp_hl, &ld_imm16_a, &Default, &Default, &Default, &xor_a_imm8, &rst_tgt3, &ldh_a_imm8, &pop_r16stk, &ldh_a_c, &di, &Default, &push_r16stk, &or_a_imm8, &rst_tgt3, &ld_hl_sp_imm8, &ld_sp_hl, &ld_a_imm16, &ei, &Default, &Default, &cp_a_imm8, &rst_tgt3};
+void (*instructions[256])() = {&nop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &ccf, &ld_imm16_sp, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rrca, &stop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rla, &jr_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rra, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &daa, &jr_cond_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &cpl, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &scf, &jr_cond_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &Default, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &halt, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &ret_cond, &pop_r16stk, &jp_cond_imm16, &jp_imm16, &call_cond_imm16, &push_r16stk, &add_a_imm8, &rst_tgt3, &ret_cond, &ret, &jp_cond_imm16, &prefix, &call_cond_imm16, &call_imm16, &adc_a_imm8, &rst_tgt3, &ret_cond, &pop_r16stk, &jp_cond_imm16, &Default, &call_cond_imm16, &push_r16stk, &sub_a_imm8, &rst_tgt3, &ret_cond, &reti, &jp_cond_imm16, &Default, &call_cond_imm16, &Default, &sbc_a_imm8, &rst_tgt3, &ldh_imm8_a, &pop_r16stk, &ldh_c_a, &Default, &Default, &push_r16stk, &and_a_imm8, &rst_tgt3, &add_sp_imm8, &jp_hl, &ld_imm16_a, &Default, &Default, &Default, &xor_a_imm8, &rst_tgt3, &ldh_a_imm8, &pop_r16stk, &ldh_a_c, &di, &Default, &push_r16stk, &or_a_imm8, &rst_tgt3, &ld_hl_sp_imm8, &ld_sp_hl, &ld_a_imm16, &ei, &Default, &Default, &cp_a_imm8, &rst_tgt3};
 
 
 
@@ -1215,9 +1247,10 @@ void bit_b3_r8() {
         m_cycles = 2;
         r8_value = R8_S;        
     }
-    reg.Z_flag = ((r8_value >> b3) & 0b1) == 0;
+    reg.Z_flag = !((r8_value >> b3) & 0b1);
     reg.N_flag = 0;
     reg.H_flag = 1;
+    printf("BIT: Z=%d N=%d H=%d C=%d\n", reg.Z_flag, reg.N_flag, reg.H_flag, reg.C_flag);
 }
 
 /*

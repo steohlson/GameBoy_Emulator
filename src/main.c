@@ -7,15 +7,23 @@
 #include "emulator/ppu.h"
 #include "emulator/gb.h"
 #include "emulator/input.h"
+#include "emulator/cartridge.h"
 
 
 /*
 System clock function
 */
 void sys_clk() {
+    static uint8_t clk_div = 0;
+    clk_div++;
+    
     input_update();
-    cpu_update();
-    //ppu_update();
+    
+    if(clk_div >= 3) {
+        
+        cpu_update();
+    }
+    ppu_update();
 }
 
 /*
@@ -29,7 +37,8 @@ int main(){
     platform_init();
     memory_init();
     cpu_init();
-    //ppu_init();
+    cartridge_load();
+    ppu_init();
 
     while(1) {
         uint64_t start_time = platform_time_ns();
@@ -39,7 +48,7 @@ int main(){
         uint64_t end_time = platform_time_ns();
         uint64_t delta_time = end_time - start_time;
         if(delta_time <= P_CPU_NS / 2) {
-            platform_sleep_ns((uint64_t)(P_CPU_NS / 2) - (delta_time));
+            //platform_sleep_ns((uint64_t)(P_CPU_NS / 2) - (delta_time));
         }
 
         start_time = platform_time_ns();
@@ -49,8 +58,9 @@ int main(){
         end_time = platform_time_ns();
         delta_time = end_time - start_time;
         if(delta_time <= P_CPU_NS / 2) {
-            platform_sleep_ns((uint64_t)(P_CPU_NS / 2) - (delta_time));
+            //platform_sleep_ns((uint64_t)(P_CPU_NS / 2) - (delta_time));
         }
     }
+    platform_cleanup();
     return 0;
 }

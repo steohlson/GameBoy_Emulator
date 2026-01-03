@@ -9,7 +9,7 @@ static SDL_AudioStream *stream = NULL;
 
 
 
-#define SCALE 10
+#define SCALE 6
 
 void platform_init() {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
@@ -46,6 +46,64 @@ void platform_audio_play(float* samples, size_t count) {
     SDL_PutAudioStreamData(stream, samples, (int)(count * sizeof(float)));
 }
 
+Rom rom = {0};
+bool failed = false;
+bool done = false;
+
+void fileOpenCallback(void *userdata, const char * const *filelist, int filter) {
+    if(!filelist || !filelist[0]) {
+        SDL_Log("No file selected");
+        done = true;
+        failed = true;
+        return;
+    }
+    const char *path = filelist[0];
+    SDL_Log("Loading file: %s", path);
+
+    FILE *file = fopen(path, "rb");
+    
+    if(!file) {
+        SDL_Log("Failed to open file: %s", path);
+        done = true;
+        failed = true;
+        return;
+    }
+    
+    fseek(file, 0 , SEEK_END);
+    rom.size = ftell(file);
+
+    rom.data = (uint8_t*)malloc(rom.size);
+    fread(rom.data, 1, rom.size, file);
+    fclose(file);
+    done = true;
+}
+
+Rom platform_file_load() {
+    restart:
+    failed = false;
+    done = false;
+
+    SDL_ShowOpenFileDialog(fileOpenCallback, NULL, window, NULL, 0, NULL, false);
+    
+    while(!done) {
+        SDL_Event event;
+        while(SDL_PollEvent(&event)) {
+            if(event.type == SDL_EVENT_QUIT) {
+                exit(0);
+            }
+        }
+        SDL_Delay(100);
+    }
+
+    if(failed) {
+        goto restart;
+    }
+
+    return rom;
+
+}
+
+
 
 uint8_t platform_get_input() {
     SDL_Event event;
@@ -80,4 +138,24 @@ void platform_sleep_ns(uint64_t ns) {
 
 void platform_log(const char* buf) {
     SDL_Log(buf);
+}
+
+void platform_cleanup() {
+    free(rom.data);
+    rom.data = NULL;
+    rom.size = 0;
+
+    if(texture) {
+        SDL_DestroyTexture(texture);
+        texture = NULL;
+    }
+    if(renderer) {
+        SDL_DestroyRenderer(renderer);
+        renderer = NULL;
+    }
+    if(window) {
+        SDL_DestroyWindow(window);
+        window = NULL;
+    }
+    SDL_Quit();
 }

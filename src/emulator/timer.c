@@ -1,6 +1,6 @@
 #include "timer.h"
 
-static const uint8_t TAC_m_cycles[4] = { 256, 4, 16, 64 }; //Timer Control Register Options
+static const uint16_t TAC_m_cycles[4] = { 256, 4, 16, 64 }; //Timer Control Register Options
 
 void timer_update() {
     static uint16_t div_counter = 0;

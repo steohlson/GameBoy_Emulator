@@ -135,10 +135,14 @@ void updateSTAT() {
     memory_set(STAT, stat);
 }
 
-void ppu_init();
+void ppu_init() {
+    ppu_clock = 0;
+    ppu_mode = OAM;
+}
 
 void ppu_update() {
     ppu_clock++;
+    //printf("PPU Clock: %d Mode: %d LY: %d\n", ppu_clock, ppu_mode, memory_get(LY));
     //Backgound
 
 
@@ -146,21 +150,21 @@ void ppu_update() {
         case OAM:
             if(ppu_clock >= 80) {
                 ppu_mode = VRAM;
-                ppu_clock = 0;
+                ppu_clock -= 80;
                 updateSTAT();
             }
             break;
         case VRAM:
             if(ppu_clock >= 172) {
                 ppu_mode = HBLANK;
-                ppu_clock = 0;
+                ppu_clock -= 172;
                 drawLine();
                 updateSTAT();
             }
             break;
         case HBLANK:
             if(ppu_clock >= 204) {
-                ppu_clock = 0;
+                ppu_clock -= 204;
                 memory_set(LY, memory_get(LY) + 1);
                 if(memory_get(LY) == 143) {
                     ppu_mode = VBLANK;
@@ -175,7 +179,7 @@ void ppu_update() {
             break;
         case VBLANK:
             if(ppu_clock >= 456) {
-                ppu_clock = 0;
+                ppu_clock -= 456;
                 memory_set(LY, memory_get(LY) + 1);
 
                 if(memory_get(LY) > 153) {

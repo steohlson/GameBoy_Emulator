@@ -1,8 +1,10 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include "cartridge.h"
 
 #define ROM 0x0000 //ROM Bank 0
 #define SWITCHABLE_ROM 0x4000 //Switchable ROM Bank

@@ -2,6 +2,7 @@
 #define PLATFORM_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 #define SCREEN_WIDTH 160
 #define SCREEN_HEIGHT 144
@@ -9,6 +10,13 @@
 void platform_init();
 void platform_video_draw(const uint32_t *framebuffer);
 void platform_audio_play(float* samples, size_t count);
+
+typedef struct{
+    uint8_t* data;
+    size_t size;
+} Rom;
+
+Rom platform_file_load();
 
 
 
@@ -27,6 +35,8 @@ uint8_t platform_get_input();
 uint64_t platform_time_ns();
 void platform_sleep_ns(uint64_t ns);
 void platform_log(const char* buf);
+
+void platform_cleanup();
 
 
 
