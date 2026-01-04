@@ -12,6 +12,8 @@ void cpu_init();
 //Update the CPU state for one cycle
 void cpu_update();
 
+void cpu_cleanup();
+
 
 
 void (*instructions[256])();

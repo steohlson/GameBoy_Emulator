@@ -4,12 +4,12 @@
 #include "bootrom.h"
 
 uint8_t memory[65536];
-bool boot_rom_enabled = true;
+bool boot_rom_enabled;
 
 
 void memory_init() {
     for(int i=0; i < sizeof(memory) / sizeof(memory[0]); i++)     { memory[i] = 0; }
-    boot_rom_enabled = true;
+    boot_rom_enabled = false;
 }
 
 

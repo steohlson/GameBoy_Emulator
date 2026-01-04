@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include "../emulator/gb.h"
 
 #define SCREEN_WIDTH 160
 #define SCREEN_HEIGHT 144
@@ -11,12 +12,7 @@ void platform_init();
 void platform_video_draw(const uint32_t *framebuffer);
 void platform_audio_play(float* samples, size_t count);
 
-typedef struct{
-    uint8_t* data;
-    size_t size;
-} Rom;
-
-Rom platform_file_load();
+void platform_file_load(Rom *rom);
 
 
 

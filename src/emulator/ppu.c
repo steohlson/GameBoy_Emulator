@@ -138,9 +138,17 @@ void updateSTAT() {
 void ppu_init() {
     ppu_clock = 0;
     ppu_mode = OAM;
+    memory_set(LCDC, 0x91);
+    memory_set(STAT, 0x85);
+    memory_set(SCY, 0x00);
+    memory_set(SCX, 0x00);
+    memory_set(LY, 0x00);
+    memory_set(BGP, 0xFC);
+
 }
 
 void ppu_update() {
+    memory_set(LY, 0x90);
     ppu_clock++;
     //printf("PPU Clock: %d Mode: %d LY: %d\n", ppu_clock, ppu_mode, memory_get(LY));
     //Backgound
@@ -192,4 +200,5 @@ void ppu_update() {
         default:
             break;
     }
+    memory_set(LY, 0x90);
 }

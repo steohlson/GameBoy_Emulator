@@ -46,11 +46,12 @@ void platform_audio_play(float* samples, size_t count) {
     SDL_PutAudioStreamData(stream, samples, (int)(count * sizeof(float)));
 }
 
-Rom rom = {0};
+
 bool failed = false;
 bool done = false;
 
 void fileOpenCallback(void *userdata, const char * const *filelist, int filter) {
+    Rom *rom = userdata;
     if(!filelist || !filelist[0]) {
         SDL_Log("No file selected");
         done = true;
@@ -70,20 +71,20 @@ void fileOpenCallback(void *userdata, const char * const *filelist, int filter) 
     }
     
     fseek(file, 0 , SEEK_END);
-    rom.size = ftell(file);
-
-    rom.data = (uint8_t*)malloc(rom.size);
-    fread(rom.data, 1, rom.size, file);
+    rom->size = ftell(file);
+    rewind(file);
+    rom->data = (uint8_t*)malloc(rom->size);
+    fread(rom->data, 1, rom->size, file);
     fclose(file);
     done = true;
 }
 
-Rom platform_file_load() {
+void platform_file_load(Rom *rom) {
     restart:
     failed = false;
     done = false;
 
-    SDL_ShowOpenFileDialog(fileOpenCallback, NULL, window, NULL, 0, NULL, false);
+    SDL_ShowOpenFileDialog(fileOpenCallback, rom, window, NULL, 0, NULL, false);
     
     while(!done) {
         SDL_Event event;
@@ -98,8 +99,6 @@ Rom platform_file_load() {
     if(failed) {
         goto restart;
     }
-
-    return rom;
 
 }
 
@@ -141,9 +140,6 @@ void platform_log(const char* buf) {
 }
 
 void platform_cleanup() {
-    free(rom.data);
-    rom.data = NULL;
-    rom.size = 0;
 
     if(texture) {
         SDL_DestroyTexture(texture);

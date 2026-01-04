@@ -76,18 +76,63 @@ struct Registers {
 #define SET_H(x) reg.F = (reg.F & ~0x20) | ((x) ? 0x20 : 0)
 #define SET_C(x) reg.F = (reg.F & ~0x10) | ((x) ? 0x10 : 0)
 
+
 bool ei_flag = false; //flag to set interrupts after next instruction
 bool halt_flag = false; //flag to set CPU to halted state
 
+FILE *cpu_log = NULL;
+
+void debugLogInit() {
+    cpu_log = fopen("cpu_log.txt", "w");
+    if (!cpu_log) {
+        perror("Failed to open cpu_log.txt");
+    }
+}
+
+void debugLog() {
+    if (!cpu_log) return;
+
+    uint16_t pc = reg.PC;
+
+    fprintf(
+        cpu_log,
+        "A:%02X F:%02X "
+        "B:%02X C:%02X "
+        "D:%02X E:%02X "
+        "H:%02X L:%02X "
+        "SP:%04X PC:%04X "
+        "PCMEM:%02X,%02X,%02X,%02X\n",
+        reg.A,
+        reg.F & 0xF0,
+        reg.B,
+        reg.C,
+        reg.D,
+        reg.E,
+        reg.H,
+        reg.L,
+        reg.SP,
+        pc,
+        memory_get(pc),
+        memory_get(pc + 1),
+        memory_get(pc + 2),
+        memory_get(pc + 3)
+    );
+
+    // Optional but recommended while debugging
+    fflush(cpu_log);
+}
+
+
 void cpu_init() {
-    reg.PC = 0x0000;
+    reg.PC = 0x0100;
     reg.SP = 0xFFFE;
-    reg.AF = 0;
-    reg.BC = 0;
-    reg.DE = 0;
-    reg.HL = 0;
+    reg.AF = 0x01B0;
+    reg.BC = 0x0013;
+    reg.DE = 0x00D8;
+    reg.HL = 0x014D;
     reg.IR = 0;
     reg.IME = 0;
+    debugLogInit();
 }
 
 uint8_t m_cycles = 0;
@@ -129,12 +174,16 @@ void handle_interrupt() {
 
 
 
+void cpu_cleanup() {
+    if (cpu_log) {
+        fclose(cpu_log);
+        cpu_log = NULL;
+    }
+}
+
 //Returns machine cycles instruction takes
 void cpu_update() {
     
-    if(reg.PC > 0xAA00) {
-        return;
-    }
     
     if(m_cycles > 0) {
         m_cycles--;
@@ -162,18 +211,20 @@ void cpu_update() {
 
 
     if(!skip) {
+        debugLog();
         uint8_t op = fetchOp();
         //run operation
-        printf("PC=0x%04X opcode=0x%02X", reg.PC, opcode);
+        //printf("PC=0x%04X opcode=0x%02X", reg.PC, opcode);
         instructions[op]();
-        printf(" AF=0x%04X BC=0x%04X DE=0x%04X HL=0x%04X SP=0x%04X\n", reg.AF, reg.BC, reg.DE, reg.HL, reg.SP);
+        //printf(" AF=0x%04X BC=0x%04X DE=0x%04X HL=0x%04X SP=0x%04X\n", reg.AF, reg.BC, reg.DE, reg.HL, reg.SP);
+        
 
     }
 
 
     //ei instruction only enables interrupts after the next opcode finishes, so thats what this does
     if(enable_interrupts) reg.IME = true;
-
+    
     return;
 }
 

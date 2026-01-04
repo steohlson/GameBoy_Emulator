@@ -1,14 +1,14 @@
 #include "cartridge.h"
 
-static Rom rom = {0};
+Rom cartridge_rom = {0};
 
 void cartridge_load() {
-    rom = platform_file_load();
+    platform_file_load(&cartridge_rom);
 }
 
 uint8_t cartridge_get(uint16_t address) {
-    if(address >= rom.size) {
+    if(address >= cartridge_rom.size) {
         return 0xFF;
     }
-    return rom.data[address];
+    return cartridge_rom.data[address];
 }

@@ -8,4 +8,9 @@
 #define WIDTH 160
 #define HEIGHT 144
 
+typedef struct{
+    uint8_t* data;
+    size_t size;
+} Rom;
+
 #endif // !GB_H

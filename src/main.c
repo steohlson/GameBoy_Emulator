@@ -36,8 +36,8 @@ void sys_clk_inv() {
 int main(){
     platform_init();
     memory_init();
-    cpu_init();
     cartridge_load();
+    cpu_init();
     ppu_init();
 
     while(1) {
@@ -61,6 +61,7 @@ int main(){
             //platform_sleep_ns((uint64_t)(P_CPU_NS / 2) - (delta_time));
         }
     }
+    cpu_cleanup();
     platform_cleanup();
     return 0;
 }
