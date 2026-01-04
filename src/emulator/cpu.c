@@ -66,10 +66,10 @@ struct Registers {
 } reg;
 
 // Access flags via helper macros
-#define Z_FLAG (reg.F & 0x80)
-#define N_FLAG (reg.F & 0x40)
-#define H_FLAG (reg.F & 0x20)
-#define C_FLAG (reg.F & 0x10)
+#define Z_FLAG ((reg.F & 0x80)>>7)
+#define N_FLAG ((reg.F & 0x40)>>6)
+#define H_FLAG ((reg.F & 0x20)>>5)
+#define C_FLAG ((reg.F & 0x10)>>4)
 
 #define SET_Z(x) reg.F = (reg.F & ~0x80) | ((x) ? 0x80 : 0)
 #define SET_N(x) reg.F = (reg.F & ~0x40) | ((x) ? 0x40 : 0)
@@ -202,8 +202,8 @@ bool check_conditional(uint8_t cond) {
     switch(cond) {
         case 0: return !(Z_FLAG); // NZ
         case 1: return (Z_FLAG);  // Z
-        case 2: return !(reg.C_flag); // NC   
-        case 3: return (reg.C_flag);  // C
+        case 2: return !(C_FLAG); // NC   
+        case 3: return (C_FLAG);  // C
         default: return false;
     }
 }
@@ -230,14 +230,14 @@ void adc_a_imm8() {
 
     uint8_t imm8 = memory_get(reg.PC++);
 
-    reg.H_flag = ((reg.A & 0x0f) + (imm8 & 0x0f) + reg.C_flag) > 0x0f;
+    SET_H(((reg.A & 0x0f) + (imm8 & 0x0f) + C_FLAG) > 0x0f);
 
-    uint16_t out = reg.A + imm8 + reg.C_flag;
+    uint16_t out = reg.A + imm8 + C_FLAG;
     reg.A = (uint8_t)out;
     SET_Z(reg.A == 0);
     
     SET_C(out >> 8);
-    reg.N_flag = 0;
+    SET_N(0);
 
 }
 
@@ -256,14 +256,14 @@ void adc_a_r8() {
         r8_value = R8_S;        
     }
     
-    reg.H_flag = ((reg.A & 0x0f) + (r8_value & 0x0f) + reg.C_flag) > 0x0f;
+    SET_H(((reg.A & 0x0f) + (r8_value & 0x0f) + C_FLAG) > 0x0f);
 
-    uint16_t out = reg.A + r8_value + reg.C_flag;
+    uint16_t out = reg.A + r8_value + C_FLAG;
     reg.A = (uint8_t)out;
-    reg.Z_flag = (reg.A == 0);
+    SET_Z(reg.A == 0);
     
-    reg.C_flag = out >> 8;
-    reg.N_flag = 0;
+    SET_C(out >> 8);
+    SET_N(0);
     
 }
 
@@ -275,14 +275,14 @@ void add_a_imm8() {
     m_cycles = 2;
     uint8_t imm8 = memory_get(reg.PC++);
 
-    reg.H_flag = ((reg.A & 0x0f) + (imm8 & 0x0f) + reg.C_flag) > 0x0f;
+    SET_H(((reg.A & 0x0f) + (imm8 & 0x0f) + C_FLAG) > 0x0f);
 
-    uint16_t out = reg.A + imm8 + reg.C_flag;
+    uint16_t out = reg.A + imm8 + C_FLAG;
     reg.A = (uint8_t)out;
-    reg.Z_flag = (reg.A == 0);
+    SET_Z(reg.A == 0);
     
-    reg.C_flag = out >> 8;
-    reg.N_flag = 0;
+    SET_C(out >> 8);
+    SET_N(0);
 
 }
 
@@ -300,14 +300,13 @@ void add_a_r8() {
         r8_value = R8_S;        
     }
     
-    reg.H_flag = ((reg.A & 0x0f) + (r8_value & 0x0f)) > 0x0f;
+    SET_H(((reg.A & 0x0f) + (r8_value & 0x0f)) > 0x0f);
 
     uint16_t out = reg.A + r8_value;
     reg.A = (uint8_t)out;
-    reg.Z_flag = (reg.A == 0);
-    
-    reg.C_flag = out >> 8;
-    reg.N_flag = 0;
+    SET_Z(reg.A == 0);
+    SET_C(out >> 8);
+    SET_N(0);
 }
 
 /*
@@ -318,12 +317,12 @@ void add_hl_r16() {
     m_cycles = 2;
     uint32_t out = R16_S + reg.HL;
     
-    reg.H_flag = ((reg.HL & 0xff) + (R16_S & 0xff)) > 0x00ff;
+    SET_H(((reg.HL & 0xff) + (R16_S & 0xff)) > 0x00ff);
 
     reg.HL = (uint16_t)out;
-    reg.Z_flag = (reg.HL == 0);
-    reg.C_flag = out >> 16;
-    reg.N_flag = 0;
+    SET_Z(reg.HL == 0);
+    SET_C(out >> 16);
+    SET_N(0);
 }
 
 /*
@@ -338,10 +337,10 @@ void add_sp_imm8() {
     uint16_t out = (uint16_t)((int32_t)reg.SP + e8);
 
     //TODO Confirm the following:
-    reg.H_flag = ((reg.SP & 0x0F) + ((uint8_t)e8 & 0x0F)) > 0x0F;
-    reg.C_flag = ((reg.SP & 0xFF) + ((uint8_t)e8 & 0xFF)) > 0xFF;
-    reg.Z_flag = 0;
-    reg.N_flag = 0;
+    SET_H(((reg.SP & 0x0F) + ((uint8_t)e8 & 0x0F)) > 0x0F);
+    SET_C(((reg.SP & 0xFF) + ((uint8_t)e8 & 0xFF)) > 0xFF);
+    SET_Z(0);
+    SET_N(0);
 
     reg.SP = out;
 }
@@ -357,10 +356,10 @@ void and_a_imm8() {
 
     reg.A = reg.A & imm8;    
     
-    reg.Z_flag = (reg.A == 0);
-    reg.H_flag = 1;
-    reg.C_flag = 0;
-    reg.N_flag = 0;
+    SET_Z( reg.A == 0 );
+    SET_H(1);
+    SET_C(0);
+    SET_N(0);
 }
 
 /*
@@ -379,10 +378,11 @@ void and_a_r8() {
 
     reg.A = reg.A & r8_value;    
     
-    reg.Z_flag = (reg.A == 0);
-    reg.H_flag = 1;
-    reg.C_flag = 0;
-    reg.N_flag = 0;
+    SET_Z( reg.A == 0 );
+    SET_H(1);
+    SET_C(0);
+    SET_N(0);
+
 
 }
 
@@ -439,9 +439,9 @@ Complement Carry Flag
 */
 void ccf() {
     m_cycles = 1;
-    reg.N_flag = 0;
-    reg.H_flag = 0;
-    reg.C_flag = !reg.C_flag;;
+    SET_N(0);
+    SET_H(0);
+    SET_C(!C_FLAG);
 }
 
 /*
@@ -453,10 +453,10 @@ void cp_a_imm8() {
     m_cycles = 2;
     uint8_t imm8 = memory_get(reg.PC++);
 
-    reg.Z_flag = (reg.A == imm8);
-    reg.N_flag = 1;
-    reg.H_flag = ((imm8 & 0x0F) > (reg.A & 0x0F));
-    reg.C_flag = (imm8 > reg.A);
+    SET_Z( reg.A == imm8 );
+    SET_N(1);
+    SET_H( (imm8 & 0x0F) > (reg.A & 0x0F) );
+    SET_C( imm8 > reg.A );
 
 }
 
@@ -476,10 +476,10 @@ void cp_a_r8() {
         r8_value = R8_S;        
     }
 
-    reg.Z_flag = (reg.A == r8_value);
-    reg.N_flag = 1;
-    reg.H_flag = ((r8_value & 0x0F) > (reg.A & 0x0F));
-    reg.C_flag = (r8_value > reg.A); 
+    SET_Z(reg.A == r8_value);
+    SET_N(1);
+    SET_H((r8_value & 0x0F) > (reg.A & 0x0F));
+    SET_C(r8_value > reg.A);
 }
 
 /*
@@ -489,8 +489,8 @@ ComPLement accumulator (A = ~A); Bitwise NOT
 void cpl() {
     m_cycles = 1;
     reg.A = ~reg.A;
-    reg.N_flag = 1;
-    reg.H_flag = 1;
+    SET_H(1);
+    SET_N(1);
 }
 
 /*
@@ -503,20 +503,20 @@ void daa()  {
     m_cycles = 1;
 
     uint8_t adjustment = 0;
-    if(reg.N_flag) {
-        if(reg.H_flag) adjustment += 0x6;
-        if(reg.C_flag) adjustment += 0x60;
+    if(N_FLAG) {
+        if(H_FLAG) adjustment += 0x6;
+        if(C_FLAG) adjustment += 0x60;
         reg.A -= adjustment;
     } else {
-        if(reg.H_flag || (reg.A & 0xF) > 0x9) adjustment += 0x6; 
-        if(reg.C_flag) {
+        if(H_FLAG || (reg.A & 0xF) > 0x9) adjustment += 0x6; 
+        if(C_FLAG) {
             adjustment += 0x60;
-            reg.C_flag = 1;
+            SET_C(1);
         }
         reg.A += adjustment;
     }
-    reg.Z_flag = (reg.A == 0);
-    reg.H_flag = 0;
+    SET_Z( reg.A == 0 );
+    SET_H(0);
 }
 
 /*
@@ -545,9 +545,9 @@ void dec_r8() {
         r8_value = *r8_p[r8];
         *r8_p[r8] = r8_value - 1;      
     }
-    reg.Z_flag = (r8_value-1 == 0);
-    reg.N_flag = 1;
-    reg.H_flag = ((r8_value & 0x0F) == 0);
+    SET_Z( (r8_value-1) == 0 );
+    SET_N(1);
+    SET_H( (r8_value & 0x0F) == 0 );
 
 }
 
@@ -604,9 +604,9 @@ void inc_r8() {
         r8_value = *r8_p[r8];
         *r8_p[r8] = r8_value + 1;   
     }
-    reg.Z_flag = (r8_value+1 == 0);
-    reg.N_flag = 0;
-    reg.H_flag = ((r8_value & 0x0F) + 1 > 0x0F); //TODO: This could be wrong allegedly
+    SET_Z( (r8_value+1) == 0 );
+    SET_N(0);
+    SET_H( ((r8_value & 0x0F) + 1) > 0x0F ); //TODO: This could be wrong allegedly
 }
 
 /*
@@ -664,7 +664,6 @@ void jr_cond_imm8() {
     }
     m_cycles = 3;
     int8_t imm8 = (int8_t)memory_get(reg.PC++);
-    reg.PC++;
     reg.PC = (uint16_t)(reg.PC + imm8);
     //printf("PC=0x%04X opcode=0x%02X Z=%d N=%d H=%d C=%d\n",
     //   reg.PC, opcode, reg.Z_flag, reg.N_flag, reg.H_flag, reg.C_flag);
@@ -721,10 +720,10 @@ void ld_hl_sp_imm8() {
 
     reg.HL = (uint16_t)((int32_t)reg.SP + e8);
     //TODO confirm the following:
-    reg.H_flag = ((reg.SP & 0x0F) + ((uint8_t)e8 & 0x0F)) > 0x0F;
-    reg.C_flag = ((reg.SP & 0xFF) + ((uint8_t)e8 & 0xFF)) > 0xFF;
-    reg.Z_flag = 0;
-    reg.N_flag = 0;
+    SET_H(((reg.SP & 0x0F) + ((uint8_t)e8 & 0x0F)) > 0x0F);
+    SET_C(((reg.SP & 0xFF) + ((uint8_t)e8 & 0x0FF)) > 0xFF);
+    SET_Z(0);
+    SET_N(0);
 
 }
 
@@ -887,10 +886,10 @@ void or_a_imm8() {
     uint8_t imm8 = memory_get(reg.PC++);
     reg.A = reg.A | imm8;
 
-    reg.Z_flag = (reg.A == 0);
-    reg.N_flag = 0;
-    reg.H_flag = 0;
-    reg.C_flag = 0;
+    SET_Z( reg.A == 0 );
+    SET_N(0);
+    SET_H(0);
+    SET_C(0);
 }
 
 /*
@@ -907,10 +906,10 @@ void or_a_r8() {
     m_cycles = 1;
     reg.A = reg.A | R8_S;
 
-    reg.Z_flag = (reg.A == 0);
-    reg.N_flag = 0;
-    reg.H_flag = 0;
-    reg.C_flag = 0;
+    SET_Z( reg.A == 0 );
+    SET_N(0);
+    SET_H(0);
+    SET_C(0);
 }
 
 /*
@@ -939,10 +938,11 @@ void pop_r16stk() {
     if(R16stk == 3) {
         reg.F = memory_get(reg.SP++) & 0xF0;
         reg.A = memory_get(reg.SP++);
-        reg.Z_flag = (reg.F & 0b10000000) >> 7;
-        reg.N_flag = (reg.F & 0b01000000) >> 6;
-        reg.H_flag = (reg.F & 0b00100000) >> 5;
-        reg.C_flag = (reg.F & 0b00010000) >> 4;
+        SET_Z( (reg.F & 0b10000000) >> 7 );
+        SET_N( (reg.F & 0b01000000) >> 6 );
+        SET_H( (reg.F & 0b00100000) >> 5 );
+        SET_C( (reg.F & 0b00010000) >> 4 );
+
     } else {
         uint8_t lo = memory_get(reg.SP++);
         uint8_t hi = memory_get(reg.SP++);
@@ -975,7 +975,7 @@ void push_r16stk() {
         reg.SP--;
         memory_set(reg.SP, reg.A);
         reg.SP--;
-        uint8_t f = (reg.Z_flag << 7) | (reg.N_flag << 6) | (reg.H_flag << 5) | (reg.C_flag << 4);
+        uint8_t f = (Z_FLAG << 7) | (N_FLAG << 6) | (H_FLAG << 5) | (C_FLAG << 4);
         memory_set(reg.SP, f);
         return;   
     }
@@ -1030,13 +1030,12 @@ Rotate register A left, through the carry flag
 */
 void rla() {
     m_cycles = 1;
-    uint8_t shifted_a = (reg.A << 1) | reg.C_flag;
-    reg.C_flag = (reg.A >> 7) & 0b1; //masking not entirely necessary
+    uint8_t shifted_a = (reg.A << 1) | C_FLAG;
+    SET_C( (reg.A >> 7) & 0b1 ); //masking not entirely necessary
     reg.A = shifted_a;
-    
-    reg.Z_flag = 0;
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_Z(0);
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1045,13 +1044,13 @@ Rotate register A right, through the carry flag
 */
 void rra() {
     m_cycles = 1;
-    uint8_t shifted_a = (reg.A >> 1) | (reg.C_flag << 7);
-    reg.C_flag = reg.A & 0b1;
+    uint8_t shifted_a = (reg.A >> 1) | (C_FLAG << 7);
+    SET_C( reg.A & 0b1 );
     reg.A = shifted_a;
     
-    reg.Z_flag = 0;
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_Z(0);
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1060,12 +1059,12 @@ Rotate register A right
 */
 void rrca() {
     m_cycles = 1;
-    reg.C_flag = reg.A & 0b1;
+    SET_C( reg.A & 0b1 );
     reg.A = (reg.A >> 1) | (reg.A << 7);
 
-    reg.Z_flag = 0;
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_Z(0);
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1094,12 +1093,12 @@ void sbc_a_imm8() {
     m_cycles = 2;
     uint8_t imm8 = memory_get(reg.PC++);
 
-    uint16_t result = reg.A - imm8 - reg.C_flag;
+    uint16_t result = reg.A - imm8 - C_FLAG;
 
-    reg.Z_flag = ((uint8_t)result == 0);
-    reg.N_flag = 1;
-    reg.H_flag = (((imm8 & 0x0F) + reg.C_flag) > (reg.A & 0x0F));
-    reg.C_flag = (reg.A < imm8 + reg.C_flag); 
+    SET_Z( (uint8_t)result == 0 );
+    SET_N(1);
+    SET_H( ((imm8 & 0x0F) + C_FLAG) > (reg.A & 0x0F) );
+    SET_C( reg.A < imm8 + C_FLAG );
 }
 
 /*
@@ -1116,12 +1115,12 @@ void sbc_a_r8() {
         m_cycles = 1;
         r8_value = R8_S;        
     }
-    uint16_t result = reg.A - r8_value - reg.C_flag;
+    uint16_t result = reg.A - r8_value - C_FLAG;
 
-    reg.Z_flag = ((uint8_t)result == 0);
-    reg.N_flag = 1;
-    reg.H_flag = (((r8_value & 0x0F) + reg.C_flag) > (reg.A & 0x0F));
-    reg.C_flag = (reg.A < r8_value + reg.C_flag); 
+    SET_Z( (uint8_t)result == 0 );
+    SET_N(1);
+    SET_H( ((r8_value & 0x0F) + C_FLAG) > (reg.A & 0x0F) );
+    SET_C( reg.A < r8_value + C_FLAG );
 }
 
 /*
@@ -1129,9 +1128,9 @@ Set Carry Flag
 */
 void scf() {
     m_cycles = 1;
-    reg.N_flag = 0;
-    reg.H_flag = 0;
-    reg.C_flag = 1;
+    SET_N(0);
+    SET_H(0);
+    SET_C(1);
 }
 
 /*
@@ -1153,11 +1152,10 @@ void sub_a_imm8() {
     uint8_t imm8 = memory_get(reg.PC++);
 
     uint16_t result = reg.A - imm8;
-
-    reg.Z_flag = ((uint8_t)result == 0);
-    reg.N_flag = 1;
-    reg.H_flag = ((imm8 & 0x0F) > (reg.A & 0x0F));
-    reg.C_flag = (reg.A < imm8); 
+    SET_Z( (uint8_t)result == 0 );
+    SET_N(1);
+    SET_H( (imm8 & 0x0F) > (reg.A & 0x0F) );
+    SET_C( reg.A < imm8 );
 }
 
 /*
@@ -1175,10 +1173,10 @@ void sub_a_r8() {
     }
     uint16_t result = reg.A - r8_value;
 
-    reg.Z_flag = ((uint8_t)result == 0);
-    reg.N_flag = 1;
-    reg.H_flag = ((r8_value & 0x0F) > (reg.A & 0x0F));
-    reg.C_flag = (reg.A < r8_value); 
+    SET_Z( (uint8_t)result == 0 );
+    SET_N(1);
+    SET_H( (r8_value & 0x0F) > (reg.A & 0x0F) );
+    SET_C( reg.A < r8_value );
 }
 
 /*
@@ -1190,10 +1188,10 @@ void xor_a_imm8() {
     uint8_t imm8 = memory_get(reg.PC++);
     reg.A = imm8 ^ reg.A;
 
-    reg.Z_flag = (reg.A == 0);
-    reg.N_flag = 0;
-    reg.H_flag = 0;
-    reg.C_flag = 0;
+    SET_Z( reg.A == 0 );
+    SET_N(0);
+    SET_H(0);
+    SET_C(0);
 }
 
 /*
@@ -1212,10 +1210,10 @@ void xor_a_r8() {
     }
     reg.A = r8_value ^ reg.A;
 
-    reg.Z_flag = (reg.A == 0);
-    reg.N_flag = 0;
-    reg.H_flag = 0;
-    reg.C_flag = 0; 
+    SET_Z( reg.A == 0 );
+    SET_N(0);
+    SET_H(0);
+    SET_C(0);
 }
 
 
@@ -1247,10 +1245,12 @@ void bit_b3_r8() {
         m_cycles = 2;
         r8_value = R8_S;        
     }
-    reg.Z_flag = !((r8_value >> b3) & 0b1);
-    reg.N_flag = 0;
-    reg.H_flag = 1;
-    printf("BIT: Z=%d N=%d H=%d C=%d\n", reg.Z_flag, reg.N_flag, reg.H_flag, reg.C_flag);
+
+    SET_Z( !((r8_value >> b3) & 0b1) );
+    SET_N(0);
+    SET_H(1);
+
+    printf("BIT: Z=%d N=%d H=%d C=%d\n", Z_FLAG, N_FLAG, H_FLAG, C_FLAG);
 }
 
 /*
@@ -1276,20 +1276,19 @@ void rl_r8() {
     if(R8 == 6) { //[HL]
         m_cycles = 4;
         uint8_t imm8 = memory_get(reg.HL);
-        uint8_t shifted_r8 = (imm8 << 1) | reg.C_flag;
-        reg.C_flag = (imm8 >> 7) & 0b1; //masking not entirely necessary
+        uint8_t shifted_r8 = (imm8 << 1) | C_FLAG;
+        SET_C( (imm8 >> 7) & 0b1 ); //masking not entirely necessary
         memory_set(reg.HL, shifted_r8);
-        reg.Z_flag = (shifted_r8 == 0);
+        SET_Z( shifted_r8 == 0 );
     } else {
         m_cycles = 2;
-        uint8_t shifted_r8 = (R8_S << 1) | reg.C_flag;
-        reg.C_flag = (R8_S >> 7) & 0b1; //masking not entirely necessary
+        uint8_t shifted_r8 = (R8_S << 1) | C_FLAG;
+        SET_C( (R8_S >> 7) & 0b1 ); //masking not entirely necessary
         R8_S = shifted_r8;
-        reg.Z_flag = (R8_S == 0);
+        SET_Z( R8_S == 0 );
     }
-    
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1301,19 +1300,18 @@ void rlc_r8() {
         m_cycles = 4;
         uint8_t imm8 = memory_get(reg.HL);
         uint8_t shifted_r8 = (imm8 << 1) | (imm8 >> 7);
-        reg.C_flag = (imm8 >> 7) & 0b1; //masking not entirely necessary
+        SET_C( (imm8 >> 7) & 0b1 ); //masking not entirely necessary
         memory_set(reg.HL, shifted_r8);
-        reg.Z_flag = (shifted_r8 == 0);
+        SET_Z( shifted_r8 == 0 );
     } else {
         m_cycles = 2;
         uint8_t shifted_r8 = (R8_S << 1) | (R8_S >> 7);
-        reg.C_flag = (R8_S >> 7) & 0b1; //masking not entirely necessary
+        SET_C( (R8_S >> 7) & 0b1 ); //masking not entirely necessary
         R8_S = shifted_r8;
-        reg.Z_flag = (R8_S == 0);
+        SET_Z(R8_S == 0);
     }
-    
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1324,20 +1322,19 @@ void rr_r8() {
     if(R8 == 6) { //[HL]
         m_cycles = 4;
         uint8_t imm8 = memory_get(reg.HL);
-        uint8_t shifted_r8 = (imm8 >> 1) | (reg.C_flag << 7);
-        reg.C_flag = imm8 & 0b1; //masking not entirely necessary
+        uint8_t shifted_r8 = (imm8 >> 1) | (C_FLAG << 7);
+        SET_C( imm8 & 0b1 ); //masking not entirely necessary
         memory_set(reg.HL, shifted_r8);
-        reg.Z_flag = (shifted_r8 == 0);
+        SET_Z( shifted_r8 == 0 );
     } else {
         m_cycles = 2;
-        uint8_t shifted_r8 = (R8_S >> 1) | (reg.C_flag << 7);
-        reg.C_flag = R8_S & 0b1; //masking not entirely necessary
+        uint8_t shifted_r8 = (R8_S >> 1) | (C_FLAG << 7);
+        SET_C(R8_S & 0b1); //masking not entirely necessary
         R8_S = shifted_r8;
-        reg.Z_flag = (R8_S == 0);
+        SET_Z(R8_S == 0);
     }
-    
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1349,19 +1346,18 @@ void rrc_r8() {
         m_cycles = 4;
         uint8_t imm8 = memory_get(reg.HL);
         uint8_t shifted_r8 = (imm8 >> 1) | (imm8 << 7);
-        reg.C_flag = imm8 & 0b1; //masking not entirely necessary
+        SET_C( imm8 & 0b1 ); //masking not entirely necessary
         memory_set(reg.HL, shifted_r8);
-        reg.Z_flag = (shifted_r8 == 0);
+        SET_Z( shifted_r8 == 0 );
     } else {
         m_cycles = 2;
         uint8_t shifted_r8 = (R8_S >> 1) | (R8_S << 7);
-        reg.C_flag = R8_S & 0b1; //masking not entirely necessary
+        SET_C(R8_S & 0b1); //masking not entirely necessary
         R8_S = shifted_r8;
-        reg.Z_flag = (R8_S == 0);
+        SET_Z(R8_S == 0);
     }
-    
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1387,19 +1383,18 @@ void sla_r8() {
         m_cycles = 4;
         uint8_t imm8 = memory_get(reg.HL);
         uint8_t shifted_r8 = (imm8 << 1);
-        reg.C_flag = (imm8 >> 7) & 0b1; //masking not entirely necessary
+        SET_C((imm8 >> 7) & 0b1); //masking not entirely necessary
         memory_set(reg.HL, shifted_r8);
-        reg.Z_flag = (shifted_r8 == 0);
+        SET_Z( shifted_r8 == 0 );
     } else {
         m_cycles = 2;
         uint8_t shifted_r8 = (R8_S << 1);
-        reg.C_flag = (R8_S >> 7) & 0b1; //masking not entirely necessary
+        SET_C((R8_S >> 7) & 0b1); //masking not entirely necessary
         R8_S = shifted_r8;
-        reg.Z_flag = (R8_S == 0);
+        SET_Z( R8_S == 0 );
     }
-    
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1411,19 +1406,18 @@ void sra_r8() {
         m_cycles = 4;
         uint8_t imm8 = memory_get(reg.HL);
         uint8_t shifted_r8 = (imm8 >> 1) | (imm8 & 0b10000000);
-        reg.C_flag = imm8 & 0b1; //masking not entirely necessary
+        SET_C(imm8 & 0b1); //masking not entirely necessary
         memory_set(reg.HL, shifted_r8);
-        reg.Z_flag = (shifted_r8 == 0);
+        SET_Z( shifted_r8 == 0 );
     } else {
         m_cycles = 2;
         uint8_t shifted_r8 = (R8_S >> 1) | (R8_S & 0b10000000);
-        reg.C_flag = R8_S & 0b1; //masking not entirely necessary
+        SET_C(R8_S & 0b1); //masking not entirely necessary
         R8_S = shifted_r8;
-        reg.Z_flag = (R8_S == 0);
+        SET_Z(R8_S == 0);
     }
-    
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1435,19 +1429,18 @@ void srl_r8() {
         m_cycles = 4;
         uint8_t imm8 = memory_get(reg.HL);
         uint8_t shifted_r8 = (imm8 >> 1);
-        reg.C_flag = imm8 & 0b1; //masking not entirely necessary
+        SET_C(imm8 & 0b1); //masking not entirely necessary
         memory_set(reg.HL, shifted_r8);
-        reg.Z_flag = (shifted_r8 == 0);
+        SET_Z( shifted_r8 == 0 );
     } else {
         m_cycles = 2;
         uint8_t shifted_r8 = (R8_S >> 1);
-        reg.C_flag = R8_S & 0b1; //masking not entirely necessary
+        SET_C(R8_S & 0b1); //masking not entirely necessary
         R8_S = shifted_r8;
-        reg.Z_flag = (R8_S == 0);
+        SET_Z(R8_S == 0);
     }
-    
-    reg.N_flag = 0;
-    reg.H_flag = 0;
+    SET_N(0);
+    SET_H(0);
 }
 
 /*
@@ -1467,11 +1460,10 @@ void swap_r8() {
         R8_S = swap;
 
     }
-    
-    reg.Z_flag = (swap == 0);
-    reg.N_flag = 0;
-    reg.H_flag = 0;
-    reg.C_flag = 0;
+    SET_Z( swap == 0 );
+    SET_N(0);
+    SET_H(0);
+    SET_C(0);
 }
 
 
