@@ -145,10 +145,13 @@ void ppu_init() {
     memory_set(LY, 0x00);
     memory_set(BGP, 0xFC);
 
+
+    
+    memory_set(LY, 0x90);
+
 }
 
 void ppu_update() {
-    memory_set(LY, 0x90);
     ppu_clock++;
     //printf("PPU Clock: %d Mode: %d LY: %d\n", ppu_clock, ppu_mode, memory_get(LY));
     //Backgound
@@ -200,5 +203,5 @@ void ppu_update() {
         default:
             break;
     }
-    memory_set(LY, 0x90);
+    //memory_set(LY, 0x90);
 }

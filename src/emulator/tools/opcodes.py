@@ -32,7 +32,7 @@ ocList.append(Opcode("00011111", "rra"))
 ocList.append(Opcode("00100111", "daa"))
 ocList.append(Opcode("00101111", "cpl"))
 ocList.append(Opcode("00110111", "scf"))
-ocList.append(Opcode("00000111", "ccf"))
+ocList.append(Opcode("00111111", "ccf"))
 
 ocList.append(Opcode("00011000", "jr_imm8"))
 ocList.append(Opcode("001XX000", "jr_cond_imm8"))

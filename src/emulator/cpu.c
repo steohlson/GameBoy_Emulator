@@ -133,6 +133,7 @@ void cpu_init() {
     reg.IR = 0;
     reg.IME = 0;
     debugLogInit();
+    debugLog();
 }
 
 uint8_t m_cycles = 0;
@@ -164,6 +165,8 @@ void handle_interrupt() {
             memory_set(reg.SP, (reg.PC >> 8) & 0xFF);
             reg.SP--;
             memory_set(reg.SP, reg.PC & 0xFF);
+            
+            
 
             reg.PC = 0x40 + (i * 8); //set PC to interrupt vector address
             break;
@@ -183,23 +186,24 @@ void cpu_cleanup() {
 
 //Returns machine cycles instruction takes
 void cpu_update() {
-    
+
     
     if(m_cycles > 0) {
         m_cycles--;
         return;
     }
+    
     //check if interrupts need enabled
     bool enable_interrupts = ei_flag;
     ei_flag = false;
 
-    bool skip = false;
-
+    
     //Check interrupts, even if CPU is halted
     if(reg.IME && (memory_get(IE) & memory_get(IF))) {
         handle_interrupt();
         return;
     }
+    
 
     if(halt_flag) {
         if(memory_get(IE) & memory_get(IF)) {
@@ -208,18 +212,15 @@ void cpu_update() {
             return;
         }
     }
+    
 
+    uint8_t op = fetchOp();
+    //run operation
+    //printf("PC=0x%04X opcode=0x%02X", reg.PC, opcode);
+    instructions[op]();
+    //printf(" AF=0x%04X BC=0x%04X DE=0x%04X HL=0x%04X SP=0x%04X\n", reg.AF, reg.BC, reg.DE, reg.HL, reg.SP);
+    debugLog();
 
-    if(!skip) {
-        debugLog();
-        uint8_t op = fetchOp();
-        //run operation
-        //printf("PC=0x%04X opcode=0x%02X", reg.PC, opcode);
-        instructions[op]();
-        //printf(" AF=0x%04X BC=0x%04X DE=0x%04X HL=0x%04X SP=0x%04X\n", reg.AF, reg.BC, reg.DE, reg.HL, reg.SP);
-        
-
-    }
 
 
     //ei instruction only enables interrupts after the next opcode finishes, so thats what this does
@@ -326,9 +327,9 @@ void add_a_imm8() {
     m_cycles = 2;
     uint8_t imm8 = memory_get(reg.PC++);
 
-    SET_H(((reg.A & 0x0f) + (imm8 & 0x0f) + C_FLAG) > 0x0f);
+    SET_H(((reg.A & 0x0f) + (imm8 & 0x0f)) > 0x0f);
 
-    uint16_t out = reg.A + imm8 + C_FLAG;
+    uint16_t out = reg.A + imm8;
     reg.A = (uint8_t)out;
     SET_Z(reg.A == 0);
     
@@ -368,10 +369,9 @@ void add_hl_r16() {
     m_cycles = 2;
     uint32_t out = R16_S + reg.HL;
     
-    SET_H(((reg.HL & 0xff) + (R16_S & 0xff)) > 0x00ff);
+    SET_H(((reg.HL & 0x0fff) + (R16_S & 0x0fff)) > 0x0fff);
 
     reg.HL = (uint16_t)out;
-    SET_Z(reg.HL == 0);
     SET_C(out >> 16);
     SET_N(0);
 }
@@ -560,7 +560,7 @@ void daa()  {
         reg.A -= adjustment;
     } else {
         if(H_FLAG || (reg.A & 0xF) > 0x9) adjustment += 0x6; 
-        if(C_FLAG) {
+        if(C_FLAG || reg.A > 0x99) {
             adjustment += 0x60;
             SET_C(1);
         }
@@ -655,7 +655,7 @@ void inc_r8() {
         r8_value = *r8_p[r8];
         *r8_p[r8] = r8_value + 1;   
     }
-    SET_Z( (r8_value+1) == 0 );
+    SET_Z( (uint8_t)(r8_value+1) == 0 );
     SET_N(0);
     SET_H( ((r8_value & 0x0F) + 1) > 0x0F ); //TODO: This could be wrong allegedly
 }
@@ -897,6 +897,7 @@ void ldh_a_imm8() {
     uint8_t lo = memory_get(reg.PC++);
     uint16_t imm16 = 0xFF00 | (lo);
     reg.A = memory_get(imm16);
+    
 }
 
 /*
@@ -952,10 +953,10 @@ void or_a_r8() {
     if(R8 == 6) { //[HL]
         m_cycles = 2;
         reg.A = reg.A | memory_get(reg.HL);
-        return;
+    } else {
+        m_cycles = 1;
+        reg.A = reg.A | R8_S;
     }
-    m_cycles = 1;
-    reg.A = reg.A | R8_S;
 
     SET_Z( reg.A == 0 );
     SET_N(0);
@@ -1090,6 +1091,21 @@ void rla() {
 }
 
 /*
+RLCA
+Rotate Register A left
+*/
+void rlca() {
+    m_cycles = 2;
+    uint8_t shifted_r8 = (reg.A << 1) | (reg.A >> 7);
+    SET_C( (reg.A >> 7) & 0b1 ); //masking not entirely necessary
+    reg.A = shifted_r8;
+
+    SET_Z(0);
+    SET_N(0);
+    SET_H(0);
+}
+
+/*
 RRA
 Rotate register A right, through the carry flag
 */
@@ -1144,12 +1160,14 @@ void sbc_a_imm8() {
     m_cycles = 2;
     uint8_t imm8 = memory_get(reg.PC++);
 
-    uint16_t result = reg.A - imm8 - C_FLAG;
+    uint8_t result = reg.A - imm8 - C_FLAG;
 
-    SET_Z( (uint8_t)result == 0 );
+    SET_Z(result == 0 );
     SET_N(1);
     SET_H( ((imm8 & 0x0F) + C_FLAG) > (reg.A & 0x0F) );
     SET_C( reg.A < imm8 + C_FLAG );
+
+    reg.A = result;
 }
 
 /*
@@ -1166,12 +1184,14 @@ void sbc_a_r8() {
         m_cycles = 1;
         r8_value = R8_S;        
     }
-    uint16_t result = reg.A - r8_value - C_FLAG;
+    uint8_t result = reg.A - r8_value - C_FLAG;
 
-    SET_Z( (uint8_t)result == 0 );
+    SET_Z(result == 0 );
     SET_N(1);
     SET_H( ((r8_value & 0x0F) + C_FLAG) > (reg.A & 0x0F) );
     SET_C( reg.A < r8_value + C_FLAG );
+
+    reg.A = result;
 }
 
 /*
@@ -1196,17 +1216,20 @@ void stop() {
 }
 
 /*
-
+SUB A,imm8
+Subtract the value imm8 from A.
 */
 void sub_a_imm8() {
     m_cycles = 2;
     uint8_t imm8 = memory_get(reg.PC++);
 
-    uint16_t result = reg.A - imm8;
-    SET_Z( (uint8_t)result == 0 );
+    uint8_t result = reg.A - imm8;
+    SET_Z(result == 0 );
     SET_N(1);
     SET_H( (imm8 & 0x0F) > (reg.A & 0x0F) );
     SET_C( reg.A < imm8 );
+
+    reg.A = result;
 }
 
 /*
@@ -1222,12 +1245,14 @@ void sub_a_r8() {
         m_cycles = 1;
         r8_value = R8_S;        
     }
-    uint16_t result = reg.A - r8_value;
-
-    SET_Z( (uint8_t)result == 0 );
+    uint8_t result = reg.A - r8_value;
+    
+    SET_Z(result == 0 );
     SET_N(1);
     SET_H( (r8_value & 0x0F) > (reg.A & 0x0F) );
     SET_C( reg.A < r8_value );
+    
+    reg.A = result;
 }
 
 /*
@@ -1270,7 +1295,7 @@ void xor_a_r8() {
 
 
 
-void (*instructions[256])() = {&nop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &ccf, &ld_imm16_sp, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rrca, &stop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rla, &jr_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rra, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &daa, &jr_cond_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &cpl, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &scf, &jr_cond_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &Default, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &halt, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &ret_cond, &pop_r16stk, &jp_cond_imm16, &jp_imm16, &call_cond_imm16, &push_r16stk, &add_a_imm8, &rst_tgt3, &ret_cond, &ret, &jp_cond_imm16, &prefix, &call_cond_imm16, &call_imm16, &adc_a_imm8, &rst_tgt3, &ret_cond, &pop_r16stk, &jp_cond_imm16, &Default, &call_cond_imm16, &push_r16stk, &sub_a_imm8, &rst_tgt3, &ret_cond, &reti, &jp_cond_imm16, &Default, &call_cond_imm16, &Default, &sbc_a_imm8, &rst_tgt3, &ldh_imm8_a, &pop_r16stk, &ldh_c_a, &Default, &Default, &push_r16stk, &and_a_imm8, &rst_tgt3, &add_sp_imm8, &jp_hl, &ld_imm16_a, &Default, &Default, &Default, &xor_a_imm8, &rst_tgt3, &ldh_a_imm8, &pop_r16stk, &ldh_a_c, &di, &Default, &push_r16stk, &or_a_imm8, &rst_tgt3, &ld_hl_sp_imm8, &ld_sp_hl, &ld_a_imm16, &ei, &Default, &Default, &cp_a_imm8, &rst_tgt3};
+void (*instructions[256])() = {&nop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rlca, &ld_imm16_sp, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rrca, &stop, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rla, &jr_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &rra, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &daa, &jr_cond_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &cpl, &jr_cond_imm8, &ld_r16_imm16, &ld_r16mem_a, &inc_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &scf, &jr_cond_imm8, &add_hl_r16, &ld_a_r16mem, &dec_r16, &inc_r8, &dec_r8, &ld_r8_imm8, &ccf, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &halt, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &ld_r8_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &add_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &adc_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sub_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &sbc_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &and_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &xor_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &or_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &cp_a_r8, &ret_cond, &pop_r16stk, &jp_cond_imm16, &jp_imm16, &call_cond_imm16, &push_r16stk, &add_a_imm8, &rst_tgt3, &ret_cond, &ret, &jp_cond_imm16, &prefix, &call_cond_imm16, &call_imm16, &adc_a_imm8, &rst_tgt3, &ret_cond, &pop_r16stk, &jp_cond_imm16, &Default, &call_cond_imm16, &push_r16stk, &sub_a_imm8, &rst_tgt3, &ret_cond, &reti, &jp_cond_imm16, &Default, &call_cond_imm16, &Default, &sbc_a_imm8, &rst_tgt3, &ldh_imm8_a, &pop_r16stk, &ldh_c_a, &Default, &Default, &push_r16stk, &and_a_imm8, &rst_tgt3, &add_sp_imm8, &jp_hl, &ld_imm16_a, &Default, &Default, &Default, &xor_a_imm8, &rst_tgt3, &ldh_a_imm8, &pop_r16stk, &ldh_a_c, &di, &Default, &push_r16stk, &or_a_imm8, &rst_tgt3, &ld_hl_sp_imm8, &ld_sp_hl, &ld_a_imm16, &ei, &Default, &Default, &cp_a_imm8, &rst_tgt3};
 
 
 
@@ -1364,6 +1389,7 @@ void rlc_r8() {
     SET_N(0);
     SET_H(0);
 }
+
 
 /*
 RR r8

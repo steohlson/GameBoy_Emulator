@@ -6,6 +6,7 @@
 #include "emulator/cpu.h"
 #include "emulator/ppu.h"
 #include "emulator/gb.h"
+#include "emulator/timer.h"
 #include "emulator/input.h"
 #include "emulator/cartridge.h"
 
@@ -16,14 +17,14 @@ System clock function
 void sys_clk() {
     static uint8_t clk_div = 0;
     clk_div++;
-    
+    timer_update();
     input_update();
     
     if(clk_div >= 3) {
         
         cpu_update();
     }
-    ppu_update();
+    //ppu_update();
 }
 
 /*
@@ -39,6 +40,7 @@ int main(){
     cartridge_load();
     cpu_init();
     ppu_init();
+    
 
     while(1) {
         uint64_t start_time = platform_time_ns();
