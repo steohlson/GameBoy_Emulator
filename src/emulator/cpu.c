@@ -83,48 +83,53 @@ bool halt_flag = false; //flag to set CPU to halted state
 FILE *cpu_log = NULL;
 
 void debugLogInit() {
-    cpu_log = fopen("cpu_log.txt", "w");
-    if (!cpu_log) {
-        perror("Failed to open cpu_log.txt");
-    }
+    #ifdef DEBUG_MODE
+        cpu_log = fopen("cpu_log.txt", "w");
+        if (!cpu_log) {
+            perror("Failed to open cpu_log.txt");
+        }
+    #endif
 }
 
 void debugLog() {
-    if (!cpu_log) return;
+    #ifdef DEBUG_MODE
+        if (!cpu_log) return;
 
-    uint16_t pc = reg.PC;
+        uint16_t pc = reg.PC;
 
-    fprintf(
-        cpu_log,
-        "A:%02X F:%02X "
-        "B:%02X C:%02X "
-        "D:%02X E:%02X "
-        "H:%02X L:%02X "
-        "SP:%04X PC:%04X "
-        "PCMEM:%02X,%02X,%02X,%02X\n",
-        reg.A,
-        reg.F & 0xF0,
-        reg.B,
-        reg.C,
-        reg.D,
-        reg.E,
-        reg.H,
-        reg.L,
-        reg.SP,
-        pc,
-        memory_get(pc),
-        memory_get(pc + 1),
-        memory_get(pc + 2),
-        memory_get(pc + 3)
-    );
+        fprintf(
+            cpu_log,
+            "A:%02X F:%02X "
+            "B:%02X C:%02X "
+            "D:%02X E:%02X "
+            "H:%02X L:%02X "
+            "SP:%04X PC:%04X "
+            "PCMEM:%02X,%02X,%02X,%02X\n",
+            reg.A,
+            reg.F & 0xF0,
+            reg.B,
+            reg.C,
+            reg.D,
+            reg.E,
+            reg.H,
+            reg.L,
+            reg.SP,
+            pc,
+            memory_get(pc),
+            memory_get(pc + 1),
+            memory_get(pc + 2),
+            memory_get(pc + 3)
+        
+        );
 
-    // Optional but recommended while debugging
-    fflush(cpu_log);
+        // Optional but recommended while debugging
+        fflush(cpu_log);
+    #endif
 }
 
 
 void cpu_init() {
-    reg.PC = 0x0100;
+    reg.PC = 0x0000;
     reg.SP = 0xFFFE;
     reg.AF = 0x01B0;
     reg.BC = 0x0013;
@@ -1325,8 +1330,6 @@ void bit_b3_r8() {
     SET_Z( !((r8_value >> b3) & 0b1) );
     SET_N(0);
     SET_H(1);
-
-    printf("BIT: Z=%d N=%d H=%d C=%d\n", Z_FLAG, N_FLAG, H_FLAG, C_FLAG);
 }
 
 /*

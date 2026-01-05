@@ -9,7 +9,7 @@ bool boot_rom_enabled;
 
 void memory_init() {
     for(int i=0; i < sizeof(memory) / sizeof(memory[0]); i++)     { memory[i] = 0; }
-    boot_rom_enabled = false;
+    boot_rom_enabled = true;
 }
 
 

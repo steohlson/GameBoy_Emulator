@@ -7,10 +7,10 @@
 #define BLACK 3
 
 uint32_t color_map[4] = {
-    0xFF9BBC0F, //White
-    0xFF8BAC0F, //Light Gray
-    0xFF306230, //Dark Gray
-    0xFF0F380F  //Black
+    0x9BBC0FFF, //White
+    0x8BAC0FFF, //Light Gray
+    0x306230FF, //Dark Gray
+    0x0F380FFF  //Black
 };
 
 
@@ -69,7 +69,7 @@ void drawLine() {
     memory_set(STAT, stat);
 
 
-    uint8_t tile_map_base_address =  (lcdc & 0b00001000) ? 0x9C00 : 0x9800;
+    uint16_t tile_map_base_address =  (lcdc & 0b00001000) ? 0x9C00 : 0x9800;
     TileMode tile_data_mode = (lcdc & 0b00010000) ? MODE_8000 : MODE_9000;
 
 
@@ -81,22 +81,22 @@ void drawLine() {
         uint8_t tile_y = scroll_y / 8;
 
         //pixel coordinates within the tile
-        uint8_t row = scroll_y % 8;
-        uint8_t col = scroll_x % 8;
+        uint8_t pix_row = scroll_y % 8;
+        uint8_t pix_col = scroll_x % 8;
 
         uint8_t address = memory_get(tile_map_base_address + tile_y * 32 + tile_x);
 
         uint16_t final_address = 0; 
         if(tile_data_mode == MODE_8000) {
             // Use Block 0 and 1, unsigned addressing, $8000 as base pointer
-            final_address = 0x8000 + (uint16_t)address * 16;
+            final_address = 0x8000 + ((uint16_t)address) * 16;
         } else if(tile_data_mode == MODE_9000) {
             // Use Block 1 and 2, signed addressing, $9000 as base pointer
-            final_address = 0x9000 + (int8_t)address * (int)16;
+            final_address = 0x9000 + ((int8_t)address) * 16;
         }
         
-        uint8_t low_byte = memory_get(final_address + row * 2);
-        uint8_t high_byte = memory_get(final_address + row * 2 + 1);
+        uint8_t low_byte = memory_get(final_address + pix_row * 2);
+        uint8_t high_byte = memory_get(final_address + pix_row * 2 + 1);
 
 
         uint8_t palette_reg = memory_get(BGP);
@@ -104,10 +104,10 @@ void drawLine() {
 
 
         for(int p=7; p>=0; p--) {
-            int screen_x = i*8 + (7 - p) - col;
+            int screen_x = i*8 + (7 - p) - pix_col;
             if(screen_x >= 0 && screen_x < SCREEN_WIDTH) {
                 uint8_t color = ((low_byte >> p) & 0b01) | (((high_byte >> p) & 0b01) << 1);
-                framebuffer[ly][i*8 + (7 - p) - col] = color_map[palette[color]];
+                framebuffer[ly][screen_x] = color_map[palette[color]];
             }
         }
 
@@ -138,16 +138,17 @@ void updateSTAT() {
 void ppu_init() {
     ppu_clock = 0;
     ppu_mode = OAM;
+    /*
     memory_set(LCDC, 0x91);
     memory_set(STAT, 0x85);
     memory_set(SCY, 0x00);
     memory_set(SCX, 0x00);
     memory_set(LY, 0x00);
     memory_set(BGP, 0xFC);
+*/
 
 
-    
-    memory_set(LY, 0x90);
+    //memory_set(LY, 0x90);
 
 }
 

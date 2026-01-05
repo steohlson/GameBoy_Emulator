@@ -24,7 +24,7 @@ void sys_clk() {
         
         cpu_update();
     }
-    //ppu_update();
+    ppu_update();
 }
 
 /*
