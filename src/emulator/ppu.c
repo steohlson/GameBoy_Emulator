@@ -72,16 +72,27 @@ void drawLine() {
     uint16_t tile_map_base_address =  (lcdc & 0b00001000) ? 0x9C00 : 0x9800;
     TileMode tile_data_mode = (lcdc & 0b00010000) ? MODE_8000 : MODE_9000;
 
+    //get background palette
+    uint8_t palette_reg = memory_get(BGP);
+    uint8_t palette[4] = {palette_reg & 0b11, (palette_reg >> 2) & 0b11, (palette_reg >> 4) & 0b11, (palette_reg >> 6) & 0b11};
 
-    uint8_t scroll_y = (ly + (uint16_t)scy) % 256;
-    for (int i=0; i<SCREEN_WIDTH/8 + 1; i++) {
-        uint8_t scroll_x = (i*8 + (uint16_t)scx) % 256;
+
+    uint8_t scroll_y = ly + scy;  //pixels scrolled on the y-axis. Same as: (ly + (uint16_t)scy) % 256
+    uint8_t tile_y = scroll_y / 8; //tile coordinates
+    uint8_t pix_row = scroll_y % 8; //pixel coordinates within the tile
+    
+    // the current row in the tile used for addressing
+    uint16_t tile_row_offset = pix_row << 1; //pix_row * 2
+
+    // Loop through each tile in the row plus one since scrolling means two partial tiles
+    for (uint8_t i=0; i<SCREEN_WIDTH/8 + 1; i++) {
+        uint8_t scroll_x = i*8 + scx; // pixels scrolled on the x-axis. Same as: (i*8 + (uint16_t)scx) % 256
+
         //tile coordinates
         uint8_t tile_x = scroll_x / 8;
-        uint8_t tile_y = scroll_y / 8;
+        
 
         //pixel coordinates within the tile
-        uint8_t pix_row = scroll_y % 8;
         uint8_t pix_col = scroll_x % 8;
 
         uint8_t address = memory_get(tile_map_base_address + tile_y * 32 + tile_x);
@@ -90,26 +101,38 @@ void drawLine() {
         if(tile_data_mode == MODE_8000) {
             // Use Block 0 and 1, unsigned addressing, $8000 as base pointer
             final_address = 0x8000 + ((uint16_t)address) * 16;
-        } else if(tile_data_mode == MODE_9000) {
+        } else {
             // Use Block 1 and 2, signed addressing, $9000 as base pointer
             final_address = 0x9000 + ((int8_t)address) * 16;
         }
         
-        uint8_t low_byte = memory_get(final_address + pix_row * 2);
-        uint8_t high_byte = memory_get(final_address + pix_row * 2 + 1);
+        //get bytes for the specific row for this tile
+        register uint8_t low_byte = memory_get(final_address + tile_row_offset);
+        register uint16_t high_byte = ((uint16_t)memory_get(final_address + tile_row_offset + 1)) << 1;
+  
 
+        //loop through each pixel in this row of the tile
+        //optimized for performance
+        for(uint8_t p=0; p<=7; p++) {
+            int screen_x = i*8 + (7-p) - pix_col;
+            
+            if(screen_x >= 0 && screen_x < SCREEN_WIDTH) {
+                uint8_t color = ((low_byte & 0b01) | (high_byte & 0b10));
+                framebuffer[ly][screen_x] = color_map[palette[color]];
+            }
+            low_byte = low_byte >> 1;
+            high_byte = high_byte >> 1;
+        }
 
-        uint8_t palette_reg = memory_get(BGP);
-        uint8_t palette[4] = {palette_reg & 0b11, (palette_reg >> 2) & 0b11, (palette_reg >> 4) & 0b11, (palette_reg >> 6) & 0b11};
-
-
+        /*
+        //equivalent but less optimized version of the above
         for(int p=7; p>=0; p--) {
             int screen_x = i*8 + (7 - p) - pix_col;
             if(screen_x >= 0 && screen_x < SCREEN_WIDTH) {
                 uint8_t color = ((low_byte >> p) & 0b01) | (((high_byte >> p) & 0b01) << 1);
                 framebuffer[ly][screen_x] = color_map[palette[color]];
             }
-        }
+        }*/
 
     }
 
