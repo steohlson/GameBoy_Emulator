@@ -19,6 +19,7 @@ void sys_clk() {
     clk_div++;
     timer_update();
     input_update();
+    memory_update();
     
     if(clk_div >= 3) {
         
