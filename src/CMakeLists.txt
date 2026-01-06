@@ -7,7 +7,7 @@ option(PLATFORM "Target platform" "SDL")
 
 
 #if(PLATFORM STREQUAL "SDL")
-    add_library(platform platform/sdl_platform.c)
+    add_library(platform platform/sdl_platform.c  platform/sdl_debug.c)
     target_link_libraries(platform PRIVATE SDL3::SDL3)
     
 #endif()

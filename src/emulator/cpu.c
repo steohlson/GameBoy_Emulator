@@ -80,52 +80,6 @@ struct Registers {
 bool ei_flag = false; //flag to set interrupts after next instruction
 bool halt_flag = false; //flag to set CPU to halted state
 
-FILE *cpu_log = NULL;
-
-void debugLogInit() {
-    #ifdef DEBUG_MODE
-        cpu_log = fopen("cpu_log.txt", "w");
-        if (!cpu_log) {
-            perror("Failed to open cpu_log.txt");
-        }
-    #endif
-}
-
-void debugLog() {
-    #ifdef DEBUG_MODE
-        if (!cpu_log) return;
-
-        uint16_t pc = reg.PC;
-
-        fprintf(
-            cpu_log,
-            "A:%02X F:%02X "
-            "B:%02X C:%02X "
-            "D:%02X E:%02X "
-            "H:%02X L:%02X "
-            "SP:%04X PC:%04X "
-            "PCMEM:%02X,%02X,%02X,%02X\n",
-            reg.A,
-            reg.F & 0xF0,
-            reg.B,
-            reg.C,
-            reg.D,
-            reg.E,
-            reg.H,
-            reg.L,
-            reg.SP,
-            pc,
-            memory_get(pc),
-            memory_get(pc + 1),
-            memory_get(pc + 2),
-            memory_get(pc + 3)
-        
-        );
-
-        // Optional but recommended while debugging
-        fflush(cpu_log);
-    #endif
-}
 
 
 void cpu_init() {
@@ -137,8 +91,6 @@ void cpu_init() {
     reg.HL = 0x014D;
     reg.IR = 0;
     reg.IME = 0;
-    debugLogInit();
-    debugLog();
 }
 
 uint8_t m_cycles = 0;
@@ -182,13 +134,6 @@ void handle_interrupt() {
 
 
 
-void cpu_cleanup() {
-    if (cpu_log) {
-        fclose(cpu_log);
-        cpu_log = NULL;
-    }
-}
-
 //Returns machine cycles instruction takes
 void cpu_update() {
 
@@ -224,8 +169,16 @@ void cpu_update() {
     //printf("PC=0x%04X opcode=0x%02X", reg.PC, opcode);
     instructions[op]();
     //printf(" AF=0x%04X BC=0x%04X DE=0x%04X HL=0x%04X SP=0x%04X\n", reg.AF, reg.BC, reg.DE, reg.HL, reg.SP);
-    debugLog();
-
+    //debugLog();
+    #ifdef DEBUG_MODE
+    debug_output->PC = reg.PC;
+    debug_output->AF = reg.AF;
+    debug_output->BC = reg.BC;
+    debug_output->DE = reg.DE;
+    debug_output->HL = reg.HL;
+    debug_output->SP = reg.SP;
+    debug_output->MEM_PC = ((uint32_t)memory_get(reg.PC+3)) | ((uint32_t)memory_get(reg.PC+2) << 8) | ((uint32_t)memory_get(reg.PC+1) << 16) | ((uint32_t)memory_get(reg.PC) << 24);
+    #endif // !DEBUG_MODE
 
 
     //ei instruction only enables interrupts after the next opcode finishes, so thats what this does

@@ -6,13 +6,13 @@
 #include "memory.h"
 #include "platform.h"
 #include <stdbool.h>
+#include "../platform/debug.h"
 
 void cpu_init();
 
 //Update the CPU state for one cycle
 void cpu_update();
 
-void cpu_cleanup();
 
 
 

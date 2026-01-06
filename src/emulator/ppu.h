@@ -5,6 +5,7 @@
 #include "../platform/platform.h"
 #include "gb.h"
 #include "interrupt.h"
+#include "../platform/debug.h"
 
 //LCD Registers
 #define LCDC 0xFF40 //LCD Control

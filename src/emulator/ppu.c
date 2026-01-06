@@ -375,6 +375,8 @@ void ppu_init() {
 
 void ppu_update() {
     ppu_clock++;
+    
+
 
     uint8_t ly = memory_get(LY);//LCD Y Position
     uint8_t lyc = memory_get(LYC);//LY Compare
@@ -449,5 +451,10 @@ void ppu_update() {
         default:
             break;
     }
+
+
+    #ifdef DEBUG_MODE
+    debug_output->PPU_MODE = ppu_mode;
+    #endif
     //memory_set(LY, 0x90);
 }

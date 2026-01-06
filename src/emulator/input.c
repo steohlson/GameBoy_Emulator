@@ -1,8 +1,17 @@
 #include "input.h"
 
 void input_update() {
+    static uint32_t in_cnt = 70224;
+    in_cnt++;
+
     static uint8_t prev_input = 0xFF;
-    uint8_t input = platform_get_input();
+    static uint8_t input = 0xFF;
+    if(in_cnt >= 70224) {
+        prev_input = input;
+        input = platform_get_input();
+        in_cnt=0;
+    }
+    
     uint8_t joyp = memory_get(JOYPAD);
     if(!(joyp & 0b00100000)) { //Select buttons
         uint8_t buttons = input & 0x0F;
@@ -22,5 +31,4 @@ void input_update() {
         memory_set(JOYPAD, joyp | 0b00001111);
     }
 
-    prev_input = input;
 }

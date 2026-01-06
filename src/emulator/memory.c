@@ -96,10 +96,10 @@ void memory_set_access(MemAccess access, uint16_t address) {
 }
 
 void memory_set_access_block(MemAccess access, uint16_t start, uint16_t end) {
-    //memset(&memory_access[start], access, end - start + 1);
-    for(uint16_t i = start; i <= end; i++) {
-        memory_access[i] = (uint8_t)access;
-    }
+    memset(&memory_access[start], (uint8_t)access, end - start + 1);
+    //for(uint16_t i = start; i <= end; i++) {
+    //    memory_access[i] = (uint8_t)access;
+    //}
 }
 
 //memory_get without access restrictions

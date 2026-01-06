@@ -1,8 +1,7 @@
 #ifndef GB_H
 #define GB_H
 
-//#define DEBUG_MODE
-
+#include <stdint.h>
 
 #define F_CPU 4194304 // 4.194304 MHz
 #define P_CPU_S ( 1.0 / ((float) F_CPU ) )

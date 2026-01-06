@@ -9,6 +9,7 @@
 #define SCREEN_HEIGHT 144
 
 void platform_init();
+void platform_update();
 void platform_video_draw(const uint32_t *framebuffer);
 void platform_audio_play(float* samples, size_t count);
 

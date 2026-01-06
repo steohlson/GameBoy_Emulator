@@ -30,6 +30,15 @@ void platform_init() {
 
 }
 
+void platform_update() {
+    SDL_Event event;
+    while(SDL_PollEvent(&event)) {
+        if(event.type == SDL_EVENT_QUIT) {
+            exit(0);
+        }
+    }
+}
+
 
 void platform_video_draw(const uint32_t *framebuffer) {
     uint32_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
@@ -103,14 +112,7 @@ void platform_file_load(Rom *rom) {
 }
 
 
-
 uint8_t platform_get_input() {
-    SDL_Event event;
-    while(SDL_PollEvent(&event)) {
-        if(event.type == SDL_EVENT_QUIT) {
-            exit(0);
-        }
-    }
 
     const uint8_t *keys = SDL_GetKeyboardState(NULL);
     uint8_t input = 0xFF;
