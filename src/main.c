@@ -76,16 +76,15 @@ int main(){
         debug_output->NS_OVER = (float)delta_time - (float)P_CPU_NS;
         debugLog();
         #endif // DEBUG_MODE
-        if(delta_time < (uint64_t)P_CPU_NS) {
+        //if(delta_time < (uint64_t)P_CPU_NS) {
             //printf("Line took too long%f\n", (float)delta_time);// - P_CPU_NS);
             //platform_sleep_ns((uint64_t)(P_CPU_NS) - (delta_time));
-        }
+        //}
 
-        static uint8_t platform_cnt = 0;
+        static uint16_t platform_cnt = 0;
         platform_cnt++;
         if(platform_cnt == 255) {
             platform_update();
-            platform_cnt = 0;
         }
         
         //start_time = platform_time_ns();

@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include "cartridge.h"
 
 
 #define ROM 0x0000 //ROM Bank 0

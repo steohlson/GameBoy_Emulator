@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define DEBUG_MODE //comment out to stop debug logging
+//#define DEBUG_MODE //comment out to stop debug logging
 
 typedef struct {
     uint16_t PC;
@@ -24,6 +24,7 @@ typedef struct {
 
 } DebugOutput;
 
+//write to this struct to log a value
 extern DebugOutput *debug_output;
 
 void debugLogInit();
