@@ -35,7 +35,7 @@ void memory_update() {
             //uint16_t src_end = src_start | 0x009F;
             //uint16_t dest_start = 0xFE00;
             //uint16_t dest_end   = 0xFR9F;
-            if(src_start < 0x8000) { // in cartridge memory
+            if(src_start < 0x8000 || src_start >= 0xA000 && src_start < 0xC000) { // in cartridge memory
                 uint16_t src_address = src_start + cartridge_offset;
                 if(src_address + 40*4 < cartridge_rom.size) {
                     memcpy(&memory[0xFE00], &cartridge_rom.data[src_address], 40 * 4);
@@ -209,16 +209,24 @@ uint8_t cartridge_get(uint16_t address) {
                 //Mode 0 just sets to the address with 0s for all other bits
                 if(bank_mode_select){ //Mode 1
                     //TODO check
-                    final_address = (final_address & 0b11111111111111) | ((0b11 & (rom_bank_num >> 5)) << 19);
-
+                    final_address = ((rom_bank_num & 0b01100000) >> 5) * 0x4000 + address;//(final_address & 0b11111111111111) | ((0b11 & (rom_bank_num >> 5)) << 19);
                 }
             } else if(address <= 0x7fff) {
-                final_address = (final_address & 0b11111111111111) | ((0b1100000 & (rom_bank_num)) << 14) & addr_mask;
+                final_address = ((rom_bank_num & rom_mask) * 0x4000) + (address & 0x3FFF); //(final_address & 0b11111111111111) | ((0b1100000 & (rom_bank_num)) << 14) & addr_mask;
             } else if(address <= 0xbfff) {
-                //no change of final address in mode 0
-                if(bank_mode_select){ //Mode 1
-                    final_address = (final_address & 0b11111111111111) | ((0b11 & (rom_bank_num >> 5)) << 13);
+                if (!ram_enable || ram_size == 0) {
+                    return 0xFF;
                 }
+                //no change of final address in mode 0
+                uint32_t bank = 0;
+                if(bank_mode_select){ //Mode 1
+                    bank = ram_bank_num & 0x03;
+                    if(bank >= ram_size) {
+                        bank = 0;
+                    }
+                    //final_address = ((rom_bank_num & rom_mask) * 0x4000) + (address & 0x3FFF);//(final_address & 0b11111111111111) | ((0b11 & (ram_bank_num)) << 13);
+                }
+                final_address = bank * 0x2000 + (address & 0x1FFF);
             }
             
             break;
@@ -227,6 +235,7 @@ uint8_t cartridge_get(uint16_t address) {
     }
 
     if(final_address >= cartridge_rom.size) {
+        printf("Requested address outside of cartridge bounds\n");
         return 0xFF;
     }
     return cartridge_rom.data[final_address];
@@ -240,36 +249,31 @@ void cartridge_set(uint16_t address, uint8_t value) {
         case MBC1_RAM:
         case MBC1_RAM_BATT:
             if(address <= 0x1FFF) { //RAM Enable
-                if((value & 0x0F) == 0xA) { //If a value of A is written here it enables ram
-                    ram_enable = true;
-                } else {
-                    ram_enable = false;
-                }
+                ram_enable = ((value & 0x0F) == 0xA); //If a value of A is written here it enables ram
                 return;
             } else if(address <= 0x3FFF) { // ROM Bank Number
                 //Sets the first 5 bits of the ROM bank register
                 rom_bank_num = (0b11100000 & rom_bank_num) | (0b00011111 & value);
                 if((0b00011111 & rom_bank_num) == 0) {
-                    rom_bank_num = 1; //you cannot set bank 0 since its always accessible in 0000-3fff
+                    rom_bank_num |= 1; //you cannot set bank 0 since its always accessible in 0000-3fff
                     //interestingly, on the gameboy you can get around this by messing with the following masking behavior
                     //assuming the rom is small enough
                     //that behavior is preserved in this implementation
                 } else if ((0b00011111 & rom_bank_num) > rom_size) {
-
                     rom_bank_num &= rom_mask;
 
                 }
                 return;
 
-            } else if ((0b00011111 & rom_bank_num) <= 0x5FFF) { // RAM Bank Number or upper bits of Rom bank num
+            } else if (address <= 0x5FFF) { // RAM Bank Number or upper bits of Rom bank num
                 //TODO add support for MBC1M carts
-                if(ram_size > 0) {
+                if(bank_mode_select != 0) {
                     ram_bank_num = 0b11 & value;
-                } else if(rom_size >= 64) {//1 MiB ROM or larger
+                } else {
                     rom_bank_num = (rom_bank_num & 0b00011111) | ((0b11 & value) << 5);
                 }
                 return;
-            } else if ((0b00011111 & rom_bank_num) <= 0x7FFF) { // Banking Mode Select
+            } else if (address <= 0x7FFF) { // Banking Mode Select
                 bank_mode_select = 0b1 & value;
             }
             break;
@@ -279,8 +283,8 @@ void cartridge_set(uint16_t address, uint8_t value) {
             break;
     }
     
-    address += cartridge_offset;
     if(address >= cartridge_rom.size) {
+        printf("Requested address outside of cartridge bounds\n");
         return;
     }
     cartridge_rom.data[address] = value;

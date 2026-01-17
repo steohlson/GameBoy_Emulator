@@ -15,7 +15,6 @@ uint32_t color_map[4] = {
 
 
 
-
 uint32_t framebuffer[SCREEN_HEIGHT][SCREEN_WIDTH]; //Height x Width
 uint8_t color_indices[SCREEN_HEIGHT][SCREEN_WIDTH]; //used to see if BG or Window have priority over OBJ
 

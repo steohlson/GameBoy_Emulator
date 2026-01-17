@@ -65,37 +65,32 @@ int main(){
     
 
     while(1) {
-        uint64_t start_time = platform_time_ns();
+        uint64_t frame_start_time = platform_time_ns();
+        for(uint32_t i=0; i < CYCLES_PER_FRAME; i++) {
+            uint64_t start_time = platform_time_ns();
 
-        sys_clk(); // system clock
+            sys_clk(); // system clock
 
-        uint64_t end_time = platform_time_ns();
-        uint64_t delta_time = end_time - start_time;
-        #ifdef DEBUG_MODE
-        debug_output->NS_TAKEN = (float)delta_time;
-        debug_output->NS_OVER = (float)delta_time - (float)P_CPU_NS;
-        debugLog();
-        #endif // DEBUG_MODE
-        //if(delta_time < (uint64_t)P_CPU_NS) {
-            //printf("Line took too long%f\n", (float)delta_time);// - P_CPU_NS);
-            //platform_sleep_ns((uint64_t)(P_CPU_NS) - (delta_time));
-        //}
+            uint64_t end_time = platform_time_ns();
+            uint64_t delta_time = end_time - start_time;
+            #ifdef DEBUG_MODE
+            debug_output->NS_TAKEN = (float)delta_time;
+            debug_output->NS_OVER = (float)delta_time - (float)P_CPU_NS;
+            debugLog();
+            #endif // DEBUG_MODE
 
-        static uint16_t platform_cnt = 0;
-        platform_cnt++;
-        if(platform_cnt == 255) {
-            platform_update();
+            //static uint16_t platform_cnt = 0;
+            //platform_cnt++;
+            //if(platform_cnt == 255) {
+                
+            //}
+        }
+        platform_update();
+        uint64_t frame_delta_time = platform_time_ns() - frame_start_time;
+        if(frame_delta_time < FRAME_TIME_NS) {
+            platform_sleep_ns(FRAME_TIME_NS - frame_delta_time);
         }
         
-        //start_time = platform_time_ns();
-
-        //sys_clk_inv(); // inverse of system clock
-
-        //end_time = platform_time_ns();
-        //delta_time = end_time - start_time;
-        //if(delta_time <= P_CPU_NS / 2) {
-            //platform_sleep_ns((uint64_t)(P_CPU_NS / 2) - (delta_time));
-        //}
     }
     platform_cleanup();
     return 0;
