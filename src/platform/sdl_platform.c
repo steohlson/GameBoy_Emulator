@@ -121,10 +121,16 @@ uint8_t platform_get_input() {
     if(keys[SDL_SCANCODE_E]) input &= ~IN_B;
     if(keys[SDL_SCANCODE_LSHIFT]) input &= ~IN_SELECT;
     if(keys[SDL_SCANCODE_TAB]) input &= ~IN_START;
+
     if(keys[SDL_SCANCODE_D]) input &= ~IN_RIGHT;
     if(keys[SDL_SCANCODE_A]) input &= ~IN_LEFT;
     if(keys[SDL_SCANCODE_W]) input &= ~IN_UP;
     if(keys[SDL_SCANCODE_S]) input &= ~IN_DOWN;
+
+    if(keys[SDL_SCANCODE_RIGHT]) input &= ~IN_RIGHT;
+    if(keys[SDL_SCANCODE_LEFT]) input &= ~IN_LEFT;
+    if(keys[SDL_SCANCODE_UP]) input &= ~IN_UP;
+    if(keys[SDL_SCANCODE_DOWN]) input &= ~IN_DOWN;
 
     return input;
 }

@@ -64,10 +64,9 @@ void oamSearch() {
     for(uint8_t i=0; i<40; i++) {
         uint16_t addr = OAM + i * 4;
         ObjAttribute obj = {memory_get_admin(addr), memory_get_admin(addr+1), memory_get_admin(addr+2), memory_get_admin(addr+3)}; 
-        uint8_t screen_y = obj.y-16; //this will wrap around, but that should be fine in this case since the screen isn't that tall
+        int16_t screen_y = (int16_t)obj.y-16; //this will wrap around, but that should be fine in this case since the screen isn't that tall
         if(ly >= screen_y && ly <= screen_y + obj_height - 1) {
-            priority_objects[obj_num] = obj;
-            obj_num++;
+            priority_objects[obj_num++] = obj;
             if(obj_num >= 10) {
                 break;
             }
@@ -197,9 +196,9 @@ void drawLine() {
     uint8_t wy = memory_get(WY);//Scroll Y
     uint8_t wx = memory_get(WX);//Scroll X
 
-    tile_map_base_address =  (lcdc & 0b01000000) ? 0x9C00 : 0x9800;
+    if(ly < wy) goto Object;
 
-    scroll_y = ly + wy;  //pixels scrolled on the y-axis. Same as: (ly + (uint16_t)scy) % 256
+    scroll_y = ly - wy;  //pixels scrolled on the y-axis. Same as: (ly + (uint16_t)scy) % 256
     tile_y = scroll_y / 8; //tile coordinates
     pix_row = scroll_y % 8; //pixel coordinates within the tile
     
@@ -217,7 +216,7 @@ void drawLine() {
         //pixel coordinates within the tile
         uint8_t pix_col = scroll_x % 8;
 
-        uint8_t address = memory_get_admin(tile_map_base_address + tile_y * 32 + tile_x);
+        uint8_t address = memory_get_admin(win_tile_map_base_address + tile_y * 32 + tile_x);
 
         uint16_t final_address = 0; 
         if(tile_data_mode == MODE_8000) {
@@ -272,12 +271,12 @@ Object:
         if(priority_objects[i].x == 0 || priority_objects[i].x >= 168) {continue;} //object is offscreen
 
         //screen coordinates
-        uint8_t obj_y = priority_objects[i].y - 16;
-        uint8_t obj_x = priority_objects[i].x - 8;
+        int obj_y = (int)priority_objects[i].y - 16;
+        int obj_x = (int)priority_objects[i].x - 8;
 
 
         //pixel coordinates within the tile
-        uint8_t pix_row;
+        int pix_row;
         if(priority_objects[i].y_flip) {
             pix_row = obj_height - 1 - (ly - obj_y);
         } else {
