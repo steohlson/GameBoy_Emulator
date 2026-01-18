@@ -43,10 +43,11 @@
 #define READ_ACCESS  0b00000010
 #define WRITE_ACCESS 0b00000001
 typedef enum {
-    READ_WRITE = 0b00000011,
-    READ_ONLY  = 0b00000010,
-    WRITE_ONLY = 0b00000001,
-    NO_ACCESS  = 0b00000000
+    READ_WRITE      = 0b00000011,
+    READ_ONLY       = 0b00000010,
+    WRITE_ONLY      = 0b00000001,
+    NO_ACCESS       = 0b00000000,
+    APU_CTRL_ACCESS = 0b10000011 //for APU control registers, only bit 6 is readable, all are writeable
 } MemAccess;
 
 

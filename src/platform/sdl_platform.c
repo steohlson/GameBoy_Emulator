@@ -22,9 +22,9 @@ void platform_init() {
 
 
     SDL_AudioSpec spec;
-    spec.channels = 1;
+    spec.channels = 2;
     spec.format = SDL_AUDIO_F32;
-    spec.freq = 8192;
+    spec.freq = F_AUDIO_SAMPLE;
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
     SDL_ResumeAudioStreamDevice(stream);
 
@@ -51,8 +51,9 @@ void platform_video_draw(const uint32_t *framebuffer) {
     SDL_RenderPresent(renderer);
 }
 
-void platform_audio_play(float* samples, size_t count) {
-    SDL_PutAudioStreamData(stream, samples, (int)(count * sizeof(float)));
+void platform_audio_play(float *left, float *right, size_t count) {
+    const void* planes[2] = {left, right};
+    SDL_PutAudioStreamPlanarData(stream, planes, 2, (int)(count * sizeof(float)));
 }
 
 

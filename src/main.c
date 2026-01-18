@@ -5,6 +5,7 @@
 #include "emulator/memory.h"
 #include "emulator/cpu.h"
 #include "emulator/ppu.h"
+#include "emulator/apu.h"
 #include "emulator/gb.h"
 #include "emulator/timer.h"
 #include "emulator/input.h"
@@ -24,8 +25,13 @@ void sys_clk() {
     
     if(clk_div >= 3) {
         input_update();
+
+        #ifdef DEBUG_MODE
         uint64_t start_time = platform_time_ns();
+        #endif
+
         cpu_update();
+
         #ifdef DEBUG_MODE
         uint64_t end_time = platform_time_ns();
         uint64_t delta_time = end_time - start_time;
@@ -36,14 +42,22 @@ void sys_clk() {
 
         
     }
+    #ifdef DEBUG_MODE
     uint64_t start_time = platform_time_ns();
+    #endif
+
     ppu_update();
+
     #ifdef DEBUG_MODE
         uint64_t end_time = platform_time_ns();
         uint64_t delta_time = end_time - start_time;
         
         debug_output->NS_PPU = (float)delta_time;
     #endif
+
+    apu_update();
+
+
 }
 
 /*
@@ -59,6 +73,7 @@ int main(){
     cartridge_load();
     cpu_init();
     ppu_init();
+    apu_init();
     #ifdef DEBUG_MODE
     debugLogInit();
     #endif // DEBUG_MODE
@@ -67,23 +82,22 @@ int main(){
     while(1) {
         uint64_t frame_start_time = platform_time_ns();
         for(uint32_t i=0; i < CYCLES_PER_FRAME; i++) {
+            #ifdef DEBUG_MODE
             uint64_t start_time = platform_time_ns();
+            #endif
+
 
             sys_clk(); // system clock
+            
 
+            #ifdef DEBUG_MODE
             uint64_t end_time = platform_time_ns();
             uint64_t delta_time = end_time - start_time;
-            #ifdef DEBUG_MODE
             debug_output->NS_TAKEN = (float)delta_time;
             debug_output->NS_OVER = (float)delta_time - (float)P_CPU_NS;
             debugLog();
             #endif // DEBUG_MODE
 
-            //static uint16_t platform_cnt = 0;
-            //platform_cnt++;
-            //if(platform_cnt == 255) {
-                
-            //}
         }
         platform_update();
         uint64_t frame_delta_time = platform_time_ns() - frame_start_time;

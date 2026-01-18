@@ -132,6 +132,9 @@ uint8_t memory_get(uint16_t address) {
     } else if(address >= 0xA000 && address < 0xC000) { //External RAM
         return cartridge_get(address);
     }
+    if(memory_access[address] == APU_CTRL_ACCESS) {
+        return memory[address] & 0b01000000;
+    }
     return memory[address];
 }
 
