@@ -21,10 +21,18 @@ void platform_init() {
     SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
 
 
+    //Set window icon
+    SDL_Surface *icon = SDL_LoadBMP("icon.bmp");
+    if(icon) {
+        SDL_SetWindowIcon(window, SDL_LoadBMP("icon.bmp"));
+    }
+    
+
+
     SDL_AudioSpec spec;
     spec.channels = 2;
     spec.format = SDL_AUDIO_F32;
-    spec.freq = F_AUDIO_SAMPLE;
+    spec.freq = (int)F_AUDIO_SAMPLE;
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
     SDL_ResumeAudioStreamDevice(stream);
 
@@ -59,6 +67,7 @@ void platform_audio_play(float *left, float *right, size_t count) {
 
 bool failed = false;
 bool done = false;
+char path[256];
 
 void fileOpenCallback(void *userdata, const char * const *filelist, int filter) {
     Rom *rom = userdata;
@@ -68,11 +77,15 @@ void fileOpenCallback(void *userdata, const char * const *filelist, int filter) 
         failed = true;
         return;
     }
-    const char *path = filelist[0];
+    
+    strcpy(path, filelist[0]);
+    //path = filelist[0];
     SDL_Log("Loading file: %s", path);
 
     FILE *file = fopen(path, "rb");
     
+
+
     if(!file) {
         SDL_Log("Failed to open file: %s", path);
         done = true;
@@ -93,8 +106,11 @@ void platform_file_load(Rom *rom) {
     restart:
     failed = false;
     done = false;
+    SDL_DialogFileFilter filters[1];
+    filters[0].name = "GameBoy ROMs";
+    filters[0].pattern = "gb;gbc";
 
-    SDL_ShowOpenFileDialog(fileOpenCallback, rom, window, NULL, 0, NULL, false);
+    SDL_ShowOpenFileDialog(fileOpenCallback, rom, window, filters, 1, NULL, false);
     
     while(!done) {
         SDL_Event event;
@@ -110,6 +126,39 @@ void platform_file_load(Rom *rom) {
         goto restart;
     }
 
+}
+
+void platform_write_save(Rom *ram) {
+    char save_path[256];//strcat(strcat(path, "/"), file_name);
+    strcpy(save_path, path);
+    strcat(save_path, ".sav");
+    FILE *file = fopen(save_path, "wb");
+
+    //if(!file) {
+    //    SDL_Log("Failed to open file for writing: %s", path);
+    //    return;
+    //
+    //}
+    
+    fwrite(ram->data, 1, ram->size, file);
+    fclose(file);
+}
+
+void platform_load_save(Rom *ram) {
+    //char* save_path = strcat(strcat(path, "/"), file_name);
+    char save_path[256];//strcat(strcat(path, "/"), file_name);
+    strcpy(save_path, path);
+    strcat(save_path, ".sav");
+    FILE *file = fopen(save_path, "rb");
+    if(!file) {
+        SDL_Log("Failed to open save file: %s", save_path);
+        return;
+    }
+    SDL_Log("Loading save file: %s", save_path);
+
+   
+    fread(ram->data, 1, ram->size, file);
+    fclose(file);
 }
 
 
@@ -133,6 +182,12 @@ uint8_t platform_get_input() {
     if(keys[SDL_SCANCODE_UP]) input &= ~IN_UP;
     if(keys[SDL_SCANCODE_DOWN]) input &= ~IN_DOWN;
 
+    if(keys[SDL_SCANCODE_RETURN]) {
+        input &= ~IN_A;
+        input &= ~IN_B;
+        input &= ~IN_START;
+        input &= ~IN_SELECT;
+    }
     return input;
 }
 

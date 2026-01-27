@@ -42,6 +42,7 @@ extern uint16_t cartridge_offset;
 void cartridge_load();
 uint8_t cartridge_get(uint16_t address);
 void cartridge_set(uint16_t address, uint8_t value);
+void cartridge_save_ram();
 
 
 #endif // !CARTRIDGE_H

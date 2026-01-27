@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "../emulator/gb.h"
 
 #define SCREEN_WIDTH 160
@@ -14,6 +15,8 @@ void platform_video_draw(const uint32_t *framebuffer);
 void platform_audio_play(float *left, float *right, size_t count);
 
 void platform_file_load(Rom *rom);
+void platform_write_save(Rom *ram);
+void platform_load_save(Rom *ram);
 
 
 

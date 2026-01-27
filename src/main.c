@@ -104,8 +104,15 @@ int main(){
         if(frame_delta_time < FRAME_TIME_NS) {
             platform_sleep_ns(FRAME_TIME_NS - frame_delta_time);
         }
+
+        static uint8_t frame_count = 1;
+        frame_count++;
+        if(frame_count == 0) {
+            cartridge_save_ram(); //save every 256 frames
+        }
         
     }
+    memory_cleanup();
     platform_cleanup();
     return 0;
 }

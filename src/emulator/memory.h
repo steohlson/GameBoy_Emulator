@@ -53,6 +53,7 @@ typedef enum {
 
 void memory_init();
 void memory_update();
+void memory_cleanup();
 uint8_t memory_get(uint16_t address);
 void memory_set(uint16_t address, uint8_t value);
 void memory_inc(uint16_t address);

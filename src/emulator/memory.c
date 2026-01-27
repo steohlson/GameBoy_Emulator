@@ -32,6 +32,7 @@ uint8_t bank_mode_select;
 
 uint16_t rom_mask = 0xFFFF; // a little complicated to explain, basically just a mask for all bits required to represent all banks
 
+char* rom_name = NULL;
 
 uint32_t cartridge_get_rom_address(uint16_t address) {
     uint32_t final_address = address;
@@ -76,6 +77,8 @@ void memory_init() {
     boot_rom_enabled = true;
     dma_clock = 0;
     dma_activated = false;
+
+
 }
 
 
@@ -117,6 +120,11 @@ void memory_update() {
             //memory_set(DMA, 0);
         }
     }
+}
+
+void memory_cleanup() {
+    free(cartridge_rom.data);
+    free(rom_name);
 }
 
 
@@ -206,6 +214,19 @@ void cartridge_load() {
     printf("MBC Type: %04X\n", mbc_type);
     memset(cartridge_ram, 0, sizeof(cartridge_ram));
 
+    rom_name = malloc(sizeof(char) * 17);
+    memcpy(rom_name, &cartridge_rom.data[0x0134], 16);
+    rom_name[16] = '\0';
+    
+    for(uint8_t i=0; i<16; i++) {
+        if(rom_name[i] == 0) {
+            rom_name[i] = '\0';
+            break;
+        } else if (rom_name[i] == ' ') {
+            rom_name[i] = '_';
+        }
+    }
+
     switch(mbc_type) {
         case ROM_ONLY:
             break;
@@ -245,12 +266,15 @@ void cartridge_load() {
             rom_mask |= rom_mask >> 2;
             rom_mask |= rom_mask >> 4;
             printf("ROM Mask: %04X\n", rom_mask);
+ 
             break;
 
 
         default:
             break;
     }
+
+    platform_load_save(&(Rom){.data = cartridge_ram, .size = sizeof(cartridge_ram)});
 }
 
 uint8_t cartridge_get(uint16_t address) {
@@ -367,3 +391,12 @@ void cartridge_set(uint16_t address, uint8_t value) {
     
     cartridge_rom.data[address] = value;
 }
+
+
+void cartridge_save_ram() {
+    Rom ram;
+    ram.data = cartridge_ram;
+    ram.size = sizeof(cartridge_ram);
+    platform_write_save(&ram);
+}
+
